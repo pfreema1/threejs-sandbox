@@ -25,7 +25,7 @@ var AfterimagePass = function ( damp ) {
 
 	this.uniforms = UniformsUtils.clone( this.shader.uniforms );
 
-	this.uniforms[ "damp" ].value = damp !== undefined ? damp : 0.96;
+	this.uniforms[ "damp" ].value = damp !== undefined ? damp : 0.97;
 
 	this.textureComp = new WebGLRenderTarget( window.innerWidth, window.innerHeight, {
 
