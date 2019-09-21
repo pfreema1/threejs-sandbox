@@ -39,7 +39,7 @@ var PixelShader = {
 
 		"void main(){",
 
-		"vec2 dxy = pixelSize / resolution;",
+		"vec2 dxy = pixelSize / resolution;", 
 		"vec2 coord = dxy * floor( vUv / dxy );",
 		"gl_FragColor = texture2D(tDiffuse, coord);",
 

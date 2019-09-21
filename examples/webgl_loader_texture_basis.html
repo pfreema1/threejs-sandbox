@@ -13,16 +13,55 @@
 			<a href="https://github.com/binomialLLC/basis_universal" target="_blank">Basis Universal GPU Texture Codec</a>
 		</div>
 
+		<script id="vertexShader" type="x-shader/x-vertex">
+			varying vec2 vUv;
+			uniform float iTime;
+		
+			void main() {
+				vUv = uv;
+		
+				gl_Position =   projectionMatrix * 
+								modelViewMatrix * 
+								vec4(position,1.0);
+			}
+		</script>
+		
+		<script id="fragmentShader" type="x-shader/x-fragment">
+			uniform sampler2D texture1;
+			uniform sampler2D texture2;
+			uniform float iTime;
+		
+			varying vec2 vUv;
+		
+			void main() {
+				vec2 modUv = mod(vUv + iTime * 0.3, 1.0);
+				vec4 color = texture2D(texture1, modUv);
+				vec4 maskColor = texture2D(texture2, vUv);
+
+				float alpha = maskColor.r;
+				/*
+				float alpha = 1.0 - step(0.5, color.r);
+				gl_FragColor = vec4(color.r, color.g, color.b, color.a * alpha);
+				*/
+				gl_FragColor = vec4(color.r, color.g, color.b, alpha);
+			}
+		</script>
+
 		<script type="module">
 
 			import * as THREE from '../build/three.module.js';
 
 			import { BasisTextureLoader } from './jsm/loaders/BasisTextureLoader.js';
+			import { GLTFLoader } from './jsm/loaders/GLTFLoader.js';
 
 			var camera, scene, renderer;
 			var mesh;
 
 			var clock = new THREE.Clock();
+			var thing, vertShader, fragShader;
+			var uniforms, colorTexture, maskTexture;
+			var textureOffset = 0;
+			
 
 			init();
 			animate();
@@ -35,35 +74,18 @@
 				renderer.gammaOutput = true;
 				renderer.gammaFactor = 2.2;
 				document.body.appendChild( renderer.domElement );
+				vertShader = document.getElementById('vertexShader').innerHTML;
+				fragShader = document.getElementById('fragmentShader').innerHTML;
+				
 
 				camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 1, 2000 );
-				camera.position.z = 500;
+				
 
 				scene = new THREE.Scene();
 
-				var geometry = new THREE.BoxBufferGeometry( 200, 200, 200 );
-				var material = new THREE.MeshBasicMaterial();
+				loadGltfModel();
 
-				mesh = new THREE.Mesh( geometry, material );
-
-				scene.add( mesh );
-
-				var loader = new BasisTextureLoader();
-				loader.setTranscoderPath( 'js/libs/basis/' );
-				loader.detectSupport( renderer );
-
-				loader.load( 'textures/compressed/PavingStones.basis', function ( texture ) {
-
-					texture.encoding = THREE.sRGBEncoding;
-					material.map = texture;
-					material.needsUpdate = true;
-
-				}, undefined, function ( error ) {
-
-					console.error( error );
-
-				} );
-
+				
 				window.addEventListener( 'resize', onWindowResize, false );
 
 			}
@@ -77,16 +99,74 @@
 
 			}
 
-			function animate() {
+			function animate(time) {
+				time *= 0.001;
 
 				requestAnimationFrame( animate );
 
 				var delta = clock.getDelta() * 0.5;
 
-				mesh.rotation.x += delta;
-				mesh.rotation.y += delta;
+				if(thing) {
+					uniforms.iTime.value = time;
+
+				}
 
 				renderer.render( scene, camera );
+
+			}
+
+			function loadGltfModel() {
+				var loader = new GLTFLoader();
+				var modelName = "models/gltf/CloudTest_01.gltf";
+
+				loader.load( modelName, function ( gltf ) {
+
+					gltf.scene.traverse(item => {
+						if(item.name === 'Thin_CloudLayer') {
+							thing = item;
+						}
+					});
+
+					colorTexture = THREE.ImageUtils.loadTexture( "textures/CloudTestTex_01.jpg" );
+					
+					maskTexture = THREE.ImageUtils.loadTexture( "textures/CloudTestMask_01.jpg" );
+
+					uniforms = {	
+						texture1: { 
+							type: "t", 
+							value: colorTexture
+						},
+						texture2: {
+							type: "t",
+							value: maskTexture
+						},
+						iTime: { 
+							value: 0 
+						},
+					};
+	
+					var material = new THREE.ShaderMaterial({
+						uniforms: uniforms,
+						vertexShader: vertShader,
+						fragmentShader: fragShader,
+						side: THREE.DoubleSide,
+						transparent: true
+					});
+
+					thing.add(new THREE.AxesHelper(20000));
+					//debugger;
+
+					thing.material = material;
+					console.log('thing:  ', thing);
+					scene.add(thing);
+
+					camera.position.z = 30;
+					camera.position.y += 20
+					camera.lookAt(thing.position);
+				
+
+				} );
+
 
 			}
 
