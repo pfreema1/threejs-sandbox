@@ -14,11 +14,13 @@
 		</div>
 
 		<script id="vertexShader" type="x-shader/x-vertex">
-			varying vec2 vUv;
 			uniform float iTime;
+			varying vec2 vUv;
+			varying vec3 vNormal;
 		
 			void main() {
 				vUv = uv;
+				vNormal = normal;
 		
 				gl_Position =   projectionMatrix * 
 								modelViewMatrix * 
@@ -27,23 +29,33 @@
 		</script>
 		
 		<script id="fragmentShader" type="x-shader/x-fragment">
-			uniform sampler2D texture1;
-			uniform sampler2D texture2;
 			uniform float iTime;
+			uniform sampler2D texture1;
 		
 			varying vec2 vUv;
+			varying mediump vec3 vNormal;
 		
 			void main() {
-				vec2 modUv = mod(vUv + iTime * 0.3, 1.0);
-				vec4 color = texture2D(texture1, modUv);
-				vec4 maskColor = texture2D(texture2, vUv);
+				mediump vec3 light = vec3(0.0, 0.0, 1.0);
+				vec2 uv = vUv;
 
-				float alpha = maskColor.r;
-				/*
-				float alpha = 1.0 - step(0.5, color.r);
-				gl_FragColor = vec4(color.r, color.g, color.b, color.a * alpha);
-				*/
-				gl_FragColor = vec4(color.r, color.g, color.b, alpha);
+				// ensure it's normalized
+				light = normalize(light);
+
+				
+				// calculate the dot product of
+				// the light to the vertex normal
+				mediump float dProd = max(0.0, dot(vNormal, light));
+
+				vec3 refractVec = refract(light, vNormal, 0.2);
+
+				
+
+				vec4 color = texture2D(texture1, uv + refractVec.xy * 0.5);
+
+				color *= dProd;
+
+				gl_FragColor = color;
 			}
 		</script>
 
@@ -84,28 +96,45 @@
 				camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 1, 2000 );
 				
 				
+
 				scene = new THREE.Scene();
-				
+				scene.add(new THREE.AxesHelper(20));
+
 				//loadGltfModel();
-				
+
 				makePlane();
-				
+
 				
 				window.addEventListener( 'resize', onWindowResize, false );
-				controls = new OrbitControls( camera, renderer.domElement );
 
 			}
 
 			function makePlane() {
 				
+				colorTexture = THREE.ImageUtils.loadTexture( "textures/CloudTestTex_01.jpg" );
 
 				var geometry = new THREE.PlaneBufferGeometry( 20, 20, 8, 8 );
-				// var material = new THREE.MeshBasicMaterial( {
-				// 	color: 0xff0000, 
-				// 	side: THREE.DoubleSide,
-				// 	wireframe: true
-				// } );
-				var material = new THREE.MeshNormalMaterial();
+				uniforms = {	
+					iTime: { 
+						value: 0 
+					},
+					texture1: { 
+						type: "t", 
+						value: colorTexture
+					},
+				};
+
+				//CloudTestTex_01.jpg
+
+
+				var material = new THREE.ShaderMaterial({
+					uniforms: uniforms,
+					vertexShader: vertShader,
+					fragmentShader: fragShader,
+					side: THREE.DoubleSide,
+					transparent: true
+				});
+
 				thing = new THREE.Mesh( geometry, material );
 				scene.add( thing );
 				scene.position.set(0, 0, -40);
@@ -125,6 +154,10 @@
 				geometry.normalsNeedUpdate = true;
 				geometry.uvsNeedUpdate = true;
 
+				material.needsUpdate = true;
+
+				
+
 			}
 
 			function onWindowResize() {
@@ -137,7 +170,7 @@
 			}
 
 			function animate(time) {
-				controls.update();
+				
 				time *= 0.001;
 
 				requestAnimationFrame( animate );
@@ -145,8 +178,10 @@
 				var delta = clock.getDelta() * 0.5;
 
 				if(thing) {
-					
-
+					// uniforms.iTime.value = time;
+					// thing.rotation.y += ;
+					// thing.rotation.x += 0.003;
+					thing.rotation.y = 0.3 * Math.sin(time);
 				}
 
 				renderer.render( scene, camera );
