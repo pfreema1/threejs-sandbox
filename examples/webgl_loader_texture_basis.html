@@ -53,6 +53,7 @@
 
 			import { BasisTextureLoader } from './jsm/loaders/BasisTextureLoader.js';
 			import { GLTFLoader } from './jsm/loaders/GLTFLoader.js';
+			import { OrbitControls } from './jsm/controls/OrbitControls.js';
 
 			var camera, scene, renderer;
 			var mesh;
@@ -61,6 +62,7 @@
 			var thing, vertShader, fragShader;
 			var uniforms, colorTexture, maskTexture;
 			var textureOffset = 0;
+			var controls;
 			
 
 			init();
@@ -76,17 +78,52 @@
 				document.body.appendChild( renderer.domElement );
 				vertShader = document.getElementById('vertexShader').innerHTML;
 				fragShader = document.getElementById('fragmentShader').innerHTML;
-				
 
+				
+				
 				camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 1, 2000 );
 				
-
+				
 				scene = new THREE.Scene();
-
-				loadGltfModel();
-
+				
+				//loadGltfModel();
+				
+				makePlane();
+				
 				
 				window.addEventListener( 'resize', onWindowResize, false );
+				controls = new OrbitControls( camera, renderer.domElement );
+
+			}
+
+			function makePlane() {
+				
+
+				var geometry = new THREE.PlaneBufferGeometry( 20, 20, 8, 8 );
+				// var material = new THREE.MeshBasicMaterial( {
+				// 	color: 0xff0000, 
+				// 	side: THREE.DoubleSide,
+				// 	wireframe: true
+				// } );
+				var material = new THREE.MeshNormalMaterial();
+				thing = new THREE.Mesh( geometry, material );
+				scene.add( thing );
+				scene.position.set(0, 0, -40);
+				console.log(thing);
+
+				
+				let positions = thing.geometry.attributes.position.array;
+				for(let i = 0; i < positions.length; i+=5) {
+					positions[i] += Math.random() * 4 - 2;
+				}
+				
+				
+				geometry.computeVertexNormals();
+				geometry.computeFaceNormals();
+				
+				geometry.verticesNeedUpdate = true;
+				geometry.normalsNeedUpdate = true;
+				geometry.uvsNeedUpdate = true;
 
 			}
 
@@ -100,6 +137,7 @@
 			}
 
 			function animate(time) {
+				controls.update();
 				time *= 0.001;
 
 				requestAnimationFrame( animate );
@@ -107,12 +145,11 @@
 				var delta = clock.getDelta() * 0.5;
 
 				if(thing) {
-					uniforms.iTime.value = time;
+					
 
 				}
 
 				renderer.render( scene, camera );
-
 			}
 
 			function loadGltfModel() {
