@@ -1,19 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<title>three.js webgl - basis texture loader</title>
-		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-		<link type="text/css" rel="stylesheet" href="main.css">
-	</head>
-	<body>
 
-		<div id="info">
-			<a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> - webgl - basis texture loader<br />
-			<a href="https://github.com/binomialLLC/basis_universal" target="_blank">Basis Universal GPU Texture Codec</a>
-		</div>
+<head>
+	<title>three.js webgl - basis texture loader</title>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+	<link type="text/css" rel="stylesheet" href="main.css">
+</head>
 
-		<script id="bgVertShader" type="x-shader/x-vertex">
+<body>
+
+	<div id="info">
+		<a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> - webgl - basis texture loader<br />
+		<a href="https://github.com/binomialLLC/basis_universal" target="_blank">Basis Universal GPU Texture Codec</a>
+	</div>
+
+	<script id="bgVertShader" type="x-shader/x-vertex">
 			uniform float iTime;
 			varying vec2 vUv;
 			varying vec3 vNormal;
@@ -27,8 +29,8 @@
 								vec4(position,1.0);
 			}
 		</script>
-		
-		<script id="bgFragShader" type="x-shader/x-fragment">
+
+	<script id="bgFragShader" type="x-shader/x-fragment">
 			uniform float iTime;
 			uniform sampler2D texture1;
 		
@@ -66,7 +68,7 @@
 			}
 		</script>
 
-		<script id="quadVertShader" type="x-shader/x-vertex">
+	<script id="quadVertShader" type="x-shader/x-vertex">
 			uniform float iTime;
 			varying vec2 vUv;
 			varying vec3 vNormal;
@@ -74,227 +76,240 @@
 			void main() {
 				vUv = uv;
 				vNormal = normal;
+
+				//gl_Position = vec4(position, 1.0);
 		
+				
 				gl_Position =   projectionMatrix * 
 								modelViewMatrix * 
 								vec4(position,1.0);
+				
 			}
 		</script>
-		
-		<script id="quadFragShader" type="x-shader/x-fragment">
+
+	<script id="quadFragShader" type="x-shader/x-fragment">
 			uniform float iTime;
-			uniform sampler2D texture1;
+			uniform sampler2D bgTexture;
+			uniform sampler2D distortionTexture;
 		
 			varying vec2 vUv;
 			varying mediump vec3 vNormal;
 		
 			void main() {
-				vec4 color = texture2D(texture1, vUv);
+				vec4 bgColor = texture2D(bgTexture, vUv);
+				vec4 distortionColor = texture2D(distortionTexture, vUv);
+				vec4 color = bgColor + distortionColor;
 
-				gl_FragColor = vec4(color);
+				gl_FragColor = vec4(distortionColor);
 			}
 		</script>
 
-		<script type="module">
+	<script type="module">
 
-			import * as THREE from '../build/three.module.js';
+		import * as THREE from '../build/three.module.js';
 
-			import { BasisTextureLoader } from './jsm/loaders/BasisTextureLoader.js';
-			import { GLTFLoader } from './jsm/loaders/GLTFLoader.js';
-			import { OrbitControls } from './jsm/controls/OrbitControls.js';
+		import { BasisTextureLoader } from './jsm/loaders/BasisTextureLoader.js';
+		import { GLTFLoader } from './jsm/loaders/GLTFLoader.js';
+		import { OrbitControls } from './jsm/controls/OrbitControls.js';
 
-			var camera, scene, renderer;
-			var mesh;
+		var camera, scene, renderer;
+		var mesh;
 
-			var clock = new THREE.Clock();
-			var thing, bgVertShader, bgFragShader, quadVertShader, quadFragShader;
-			var uniforms, colorTexture, maskTexture;
-			var textureOffset = 0;
-			var controls;
-			var bgUniforms, bgTexture, bgMesh, bgRenderTarget, bgRtCamera, bgRtScene;
-			// next:  create render target for distortion
-			var fsQuad, fsQuadUniforms;
-			
+		var clock = new THREE.Clock();
+		var thing, bgVertShader, bgFragShader, quadVertShader, quadFragShader;
+		var uniforms, colorTexture, maskTexture;
+		var textureOffset = 0;
+		var controls;
+		var bgUniforms, bgTexture, bgMesh, bgRenderTarget, bgRtCamera, bgRtScene;
+		var distortionScene, distortionCamera, distortionRenderTarget;
+		var fsQuad, fsQuadUniforms;
 
-			init();
-			animate();
 
-			function init() {
+		init();
+		animate();
 
-				renderer = new THREE.WebGLRenderer( { antialias: true } );
-				renderer.setPixelRatio( window.devicePixelRatio );
-				renderer.setSize( window.innerWidth, window.innerHeight );
-				renderer.gammaOutput = true;
-				renderer.gammaFactor = 2.2;
-				document.body.appendChild( renderer.domElement );
-				bgVertShader = document.getElementById('bgVertShader').innerHTML;
-				bgFragShader = document.getElementById('bgFragShader').innerHTML;
-				quadVertShader = document.getElementById('quadVertShader').innerHTML;
-				quadFragShader = document.getElementById('quadFragShader').innerHTML;
+		function init() {
 
-				bgRenderTarget = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight);
-				bgRtCamera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 1, 2000 );
-				
-				
-				camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 1, 2000 );
-				camera.position.set(0, 0, 20);
-				
-				
+			renderer = new THREE.WebGLRenderer({ antialias: true });
+			renderer.setPixelRatio(window.devicePixelRatio);
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			renderer.gammaOutput = true;
+			renderer.gammaFactor = 2.2;
+			document.body.appendChild(renderer.domElement);
+			bgVertShader = document.getElementById('bgVertShader').innerHTML;
+			bgFragShader = document.getElementById('bgFragShader').innerHTML;
+			quadVertShader = document.getElementById('quadVertShader').innerHTML;
+			quadFragShader = document.getElementById('quadFragShader').innerHTML;
 
-				scene = new THREE.Scene();
-				bgRtScene = new THREE.Scene();
-				
+			bgRenderTarget = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight);
+			bgRtCamera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 2000);
 
-				//loadGltfModel();
+			distortionRenderTarget = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight);
+			distortionCamera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 2000);
 
-				makeDistortionPlane();
 
-				makeBackgroundPlane();
+			camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 2000);
+			camera.position.set(0, 0, 1);
 
-				makeFsQuad();
 
-				
-				window.addEventListener( 'resize', onWindowResize, false );
 
-			}
+			scene = new THREE.Scene();
+			bgRtScene = new THREE.Scene();
+			distortionScene = new THREE.Scene();
 
-			function makeFsQuad() {
-				let gcdVal = gcd(window.innerWidth, window.innerHeight);
-				let w = window.innerWidth / gcdVal;
-				let h = window.innerHeight / gcdVal;
-				debugger;
-				
-				let geo = new THREE.PlaneGeometry(2, 2);
 
-				bgUniforms = {
-					iTime: { 
-						value: 0 
-					},
-					texture1: { 
-						type: "t", 
-						value: bgRenderTarget.texture
-					},
-				};
+			//loadGltfModel();
 
-				let material = new THREE.ShaderMaterial({
-					vertexShader: quadVertShader,
-					fragmentShader: quadFragShader,
-					depthWrite: false,
-					depthTest: false
-				});
+			makeDistortionPlane();
 
-				fsQuad = new THREE.Mesh(geo, material);
+			makeBackgroundPlane();
 
-				scene.add(fsQuad);
-			}
+			makeFsQuad();
 
-			function makeBackgroundPlane() {
-				bgTexture = THREE.ImageUtils.loadTexture( "textures/throat-kick.png" );
 
-				var geometry = new THREE.PlaneBufferGeometry( 20, 20, 8, 8 );
+			window.addEventListener('resize', onWindowResize, false);
 
-				bgUniforms = {
-					iTime: { 
-						value: 0 
-					},
-					texture1: { 
-						type: "t", 
-						value: bgTexture
-					},
-				};
+		}
 
-				var material = new THREE.ShaderMaterial({
-					uniforms: bgUniforms,
-					vertexShader: bgVertShader,
-					fragmentShader: bgFragShader,
-					side: THREE.DoubleSide,
-					transparent: true
-				});
+		function makeFsQuad() {
+			let gcdVal = gcd(window.innerWidth, window.innerHeight);
+			let w = window.innerWidth / gcdVal;
+			let h = window.innerHeight / gcdVal;
 
-				bgMesh = new THREE.Mesh(geometry, material);
-				bgMesh.position.set(0, 0, -50);
-				bgMesh.scale.set(5, 5, 5);
-				// scene.add(bgMesh);
-				bgRtScene.add(bgMesh);
+			let geo = new THREE.PlaneGeometry(2, 2);
 
-			}
-
-			function makeDistortionPlane() {
-				
-				colorTexture = THREE.ImageUtils.loadTexture( "textures/CloudTestTex_01.jpg" );
-
-				var geometry = new THREE.PlaneBufferGeometry( 20, 20, 8, 8 );
-
-				var material = new THREE.MeshNormalMaterial();
-
-				thing = new THREE.Mesh( geometry, material );
-				thing.position.set(0, 0, -40);
-				scene.add( thing );
-				
-				console.log(thing);
-
-				
-				// offset vertices
-				let positions = thing.geometry.attributes.position.array;
-				for(let i = 0; i < positions.length; i+=5) {
-					positions[i] += Math.random() * 4 - 2;
+			bgUniforms = {
+				iTime: {
+					value: 0
+				},
+				bgTexture: {
+					type: "t",
+					value: bgRenderTarget.texture
+				},
+				distortionTexture: {
+					type: "t",
+					value: distortionRenderTarget.texture
 				}
-				
-				
-				geometry.computeVertexNormals();
-				geometry.computeFaceNormals();
-				
-				geometry.verticesNeedUpdate = true;
-				geometry.normalsNeedUpdate = true;
-				geometry.uvsNeedUpdate = true;
+			};
 
-				material.needsUpdate = true;
+			let material = new THREE.ShaderMaterial({
+				vertexShader: quadVertShader,
+				fragmentShader: quadFragShader,
+				depthWrite: false,
+				depthTest: false
+			});
 
-				
+			fsQuad = new THREE.Mesh(geo, material);
 
+			scene.add(fsQuad);
+		}
+
+		function makeBackgroundPlane() {
+			bgTexture = THREE.ImageUtils.loadTexture("textures/throat-kick.png");
+
+			var geometry = new THREE.PlaneBufferGeometry(20, 20, 8, 8);
+
+			bgUniforms = {
+				iTime: {
+					value: 0
+				},
+				texture1: {
+					type: "t",
+					value: bgTexture
+				},
+			};
+
+			var material = new THREE.ShaderMaterial({
+				uniforms: bgUniforms,
+				vertexShader: bgVertShader,
+				fragmentShader: bgFragShader,
+				side: THREE.DoubleSide,
+				transparent: true
+			});
+
+			bgMesh = new THREE.Mesh(geometry, material);
+			bgMesh.position.set(0, 0, -50);
+			bgMesh.scale.set(1, 1, 1);
+			// scene.add(bgMesh);
+			bgRtScene.add(bgMesh);
+
+		}
+
+		function makeDistortionPlane() {
+
+			colorTexture = THREE.ImageUtils.loadTexture("textures/CloudTestTex_01.jpg");
+
+			var geometry = new THREE.PlaneBufferGeometry(20, 20, 8, 8);
+
+			var material = new THREE.MeshNormalMaterial();
+
+			thing = new THREE.Mesh(geometry, material);
+			thing.position.set(0, 0, -40);
+			distortionScene.add(thing);
+
+			console.log(thing);
+
+
+			// offset vertices
+			let positions = thing.geometry.attributes.position.array;
+			for (let i = 0; i < positions.length; i += 5) {
+				positions[i] += Math.random() * 4 - 2;
 			}
 
-			function onWindowResize() {
 
-				camera.aspect = window.innerWidth / window.innerHeight;
-				camera.updateProjectionMatrix();
+			geometry.computeVertexNormals();
+			geometry.computeFaceNormals();
 
-				renderer.setSize( window.innerWidth, window.innerHeight );
+			geometry.verticesNeedUpdate = true;
+			geometry.normalsNeedUpdate = true;
+			geometry.uvsNeedUpdate = true;
 
+			material.needsUpdate = true;
+
+
+
+		}
+
+		function onWindowResize() {
+
+			camera.aspect = window.innerWidth / window.innerHeight;
+			camera.updateProjectionMatrix();
+
+			renderer.setSize(window.innerWidth, window.innerHeight);
+
+		}
+
+
+
+
+
+		function animate(time) {
+
+			time *= 0.001;
+
+			requestAnimationFrame(animate);
+
+			var delta = clock.getDelta() * 0.5;
+
+			if (thing) {
+				thing.rotation.y = 0.3 * Math.sin(time);
 			}
 
-			
+			renderer.setRenderTarget(bgRenderTarget);
+			renderer.render(bgRtScene, bgRtCamera);
+			renderer.setRenderTarget(distortionRenderTarget);
+			renderer.render(distortionScene, distortionCamera);
+			renderer.setRenderTarget(null);
 
-			
+			renderer.render(scene, camera);
+		}
 
-			function animate(time) {
-				
-				time *= 0.001;
+		function gcd(a, b) {
+			if (b == 0)
+				return a;
 
-				requestAnimationFrame( animate );
-
-				var delta = clock.getDelta() * 0.5;
-
-				if(thing) {
-					// uniforms.iTime.value = time;
-					// thing.rotation.y += ;
-					// thing.rotation.x += 0.003;
-					thing.rotation.y = 0.3 * Math.sin(time);
-				}
-
-				renderer.setRenderTarget(bgRenderTarget);
-				renderer.render(bgRtScene, bgRtCamera);
-				renderer.setRenderTarget(null);
-
-				renderer.render( scene, camera );
-			}
-
-			function gcd(a,b) {
-				if (b == 0)
-					return a;
-
-				return gcd(b, a%b);
-			}
+			return gcd(b, a % b);
+		}
 
 			// function loadGltfModel() {
 			// 	var loader = new GLTFLoader();
@@ -309,7 +324,7 @@
 			// 		});
 
 			// 		colorTexture = THREE.ImageUtils.loadTexture( "textures/CloudTestTex_01.jpg" );
-					
+
 			// 		maskTexture = THREE.ImageUtils.loadTexture( "textures/CloudTestMask_01.jpg" );
 
 			// 		uniforms = {	
@@ -325,7 +340,7 @@
 			// 				value: 0 
 			// 			},
 			// 		};
-	
+
 			// 		var material = new THREE.ShaderMaterial({
 			// 			uniforms: uniforms,
 			// 			vertexShader: bgVertShader,
@@ -344,16 +359,15 @@
 			// 		camera.position.z = 30;
 			// 		camera.position.y += 20
 			// 		camera.lookAt(thing.position);
-				
+
 
 			// 	} );
 
 
 			// }
 
-		</script>
+	</script>
 
-	</body>
+</body>
+
 </html>
-
-
