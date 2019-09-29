@@ -172,9 +172,6 @@
 		}
 
 		function makeFsQuad() {
-			let gcdVal = gcd(window.innerWidth, window.innerHeight);
-			let w = window.innerWidth / gcdVal;
-			let h = window.innerHeight / gcdVal;
 
 			let geo = new THREE.PlaneGeometry(2, 2);
 
@@ -236,8 +233,6 @@
 		}
 
 		function makeDistortionPlane() {
-
-			colorTexture = THREE.ImageUtils.loadTexture("textures/CloudTestTex_01.jpg");
 
 			var geometry = new THREE.PlaneBufferGeometry(20, 20, 8, 8);
 
@@ -304,67 +299,7 @@
 			renderer.render(scene, camera);
 		}
 
-		function gcd(a, b) {
-			if (b == 0)
-				return a;
 
-			return gcd(b, a % b);
-		}
-
-			// function loadGltfModel() {
-			// 	var loader = new GLTFLoader();
-			// 	var modelName = "models/gltf/CloudTest_01.gltf";
-
-			// 	loader.load( modelName, function ( gltf ) {
-
-			// 		gltf.scene.traverse(item => {
-			// 			if(item.name === 'Thin_CloudLayer') {
-			// 				thing = item;
-			// 			}
-			// 		});
-
-			// 		colorTexture = THREE.ImageUtils.loadTexture( "textures/CloudTestTex_01.jpg" );
-
-			// 		maskTexture = THREE.ImageUtils.loadTexture( "textures/CloudTestMask_01.jpg" );
-
-			// 		uniforms = {	
-			// 			texture1: { 
-			// 				type: "t", 
-			// 				value: colorTexture
-			// 			},
-			// 			texture2: {
-			// 				type: "t",
-			// 				value: maskTexture
-			// 			},
-			// 			iTime: { 
-			// 				value: 0 
-			// 			},
-			// 		};
-
-			// 		var material = new THREE.ShaderMaterial({
-			// 			uniforms: uniforms,
-			// 			vertexShader: bgVertShader,
-			// 			fragmentShader: bgFragShader,
-			// 			side: THREE.DoubleSide,
-			// 			transparent: true
-			// 		});
-
-			// 		thing.add(new THREE.AxesHelper(20000));
-			// 		//debugger;
-
-			// 		thing.material = material;
-			// 		console.log('thing:  ', thing);
-			// 		scene.add(thing);
-
-			// 		camera.position.z = 30;
-			// 		camera.position.y += 20
-			// 		camera.lookAt(thing.position);
-
-
-			// 	} );
-
-
-			// }
 
 	</script>
 
