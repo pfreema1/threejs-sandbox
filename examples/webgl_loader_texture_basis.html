@@ -9,8 +9,7 @@
 </head>
 
 <body>
-
-	<script id="distPlaneVertShader" type="x-shader/x-vertex">
+	<script id="distPlaneEdgesVertShader" type="x-shader/x-vertex">
 		varying vec2 vUv;
 		varying vec3 vNormal;
 		varying vec3 vBC;
@@ -28,7 +27,7 @@
 		}
 	</script>
 
-	<script id="distPlaneFragShader" type="x-shader/x-fragment">
+	<script id="distPlaneEdgesFragShader" type="x-shader/x-fragment">
 		varying vec2 vUv;
 		varying mediump vec3 vNormal;
 		varying vec3 vBC;
@@ -36,9 +35,40 @@
 		void main() {
 			vec3 view_nv = normalize(vNormal);
 			float dist = distance(vec3(0.0), vBC);
+			vec3 color = vec3(dist);
+			gl_FragColor = vec4(color, 1.0);
+		}
+	</script>
+
+	<script id="distPlaneNormalsVertShader" type="x-shader/x-vertex">
+		varying vec2 vUv;
+		varying vec3 vNormal;
+		varying vec3 vBC;
+
+		//attribute vec3 barycentric;
+	
+		void main() {
+			vUv = uv;
+			vNormal = normalMatrix * normalize(normal);
+			//vBC = barycentric;
+	
+			gl_Position =   projectionMatrix * 
+							modelViewMatrix * 
+							vec4(position,1.0);
+		}
+	</script>
+
+	<script id="distPlaneNormalsFragShader" type="x-shader/x-fragment">
+		varying vec2 vUv;
+		varying mediump vec3 vNormal;
+		//varying vec3 vBC;
+	
+		void main() {
+			vec3 view_nv = normalize(vNormal);
+			//float dist = distance(vec3(0.0), vBC);
 			vec3 nv_color = view_nv * 0.5 + 0.5;
 			
-			nv_color = mix(nv_color, vec3(1.0), dist);
+			//nv_color = mix(nv_color, vec3(1.0), dist);
 			gl_FragColor = vec4(nv_color, 1.0);
 		}
 	</script>
@@ -163,13 +193,15 @@
 		var mesh;
 
 		var clock = new THREE.Clock();
-		var thing, thingClone, bgVertShader, bgFragShader, quadVertShader, quadFragShader, distPlaneVertShader, distPlaneFragShader;
+		var distPlaneNormals, distPlaneNormalsClone, bgVertShader, bgFragShader, quadVertShader, quadFragShader, distPlaneNormalsVertShader, distPlaneNormalsFragShader;
 		var uniforms, colorTexture, maskTexture;
 		var textureOffset = 0;
 		var controls;
 		var bgUniforms, bgTexture, bgMesh, bgRenderTarget, bgRtCamera, bgRtScene;
-		var distortionScene, distortionCamera, distortionRenderTarget;
+		var distortionNormalsScene, distortionNormalsCamera, distortionNormalsRenderTarget;
 		var fsQuad, fsQuadUniforms;
+		var distPlaneEdges, distPlaneEdgesClone, distPlaneEdgesVertShader, distPlaneEdgesFragShader;
+		var distortionEdgesScene, distortionEdgesCamera, distortionEdgesRenderTarget;
 
 
 		init();
@@ -187,16 +219,22 @@
 			bgFragShader = document.getElementById('bgFragShader').innerHTML;
 			quadVertShader = document.getElementById('quadVertShader').innerHTML;
 			quadFragShader = document.getElementById('quadFragShader').innerHTML;
-			distPlaneFragShader = document.getElementById('distPlaneFragShader').innerHTML;
-			distPlaneVertShader = document.getElementById('distPlaneVertShader').innerHTML;
+			distPlaneNormalsFragShader = document.getElementById('distPlaneNormalsFragShader').innerHTML;
+			distPlaneNormalsVertShader = document.getElementById('distPlaneNormalsVertShader').innerHTML;
+			distPlaneEdgesFragShader = document.getElementById('distPlaneEdgesFragShader').innerHTML;
+			distPlaneEdgesVertShader = document.getElementById('distPlaneEdgesVertShader').innerHTML;
 
 			bgRenderTarget = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight);
 			bgRtCamera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 2000);
 			bgRtCamera.position.set(0, 0, 5);
 
-			distortionRenderTarget = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight);
-			distortionCamera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 2000);
-			distortionCamera.position.set(0, 0, 5);
+			distortionNormalsRenderTarget = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight);
+			distortionNormalsCamera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 2000);
+			distortionNormalsCamera.position.set(0, 0, 5);
+
+			distortionEdgesRenderTarget = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight);
+			distortionEdgesCamera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 2000);
+			distortionEdgesCamera.position.set(0, 0, 5);
 
 
 			camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 2000);
@@ -206,14 +244,13 @@
 
 			scene = new THREE.Scene();
 			bgRtScene = new THREE.Scene();
-			distortionScene = new THREE.Scene();
+			distortionNormalsScene = new THREE.Scene();
+			distortionEdgesScene = new THREE.Scene();
 
 
-			//loadGltfModel();
 			makeBackgroundPlane();
 
-			makeDistortionPlane();
-
+			makeDistortionPlanes();
 
 			makeFsQuad();
 
@@ -236,7 +273,7 @@
 				},
 				distortionTexture: {
 					type: "t",
-					value: distortionRenderTarget.texture
+					value: distortionNormalsRenderTarget.texture
 				}
 			};
 
@@ -287,16 +324,22 @@
 
 		}
 
-		function makeDistortionPlane() {
+		function makeDistortionPlanes() {
 			let distRange = 2;
 
 			var geometry = new THREE.PlaneBufferGeometry(20, 20, 8, 8);
 
 			// var material = new THREE.MeshNormalMaterial();
-			var material = new THREE.ShaderMaterial({
+			var normalsMaterial = new THREE.ShaderMaterial({
 				uniforms: {},
-				vertexShader: distPlaneVertShader,
-				fragmentShader: distPlaneFragShader
+				vertexShader: distPlaneNormalsVertShader,
+				fragmentShader: distPlaneNormalsFragShader
+			});
+
+			var edgesMaterial = new THREE.ShaderMaterial({
+				uniforms: {},
+				vertexShader: distPlaneEdgesVertShader,
+				fragmentShader: distPlaneEdgesFragShader
 			});
 
 			// offset vertices
@@ -304,6 +347,9 @@
 			for (let i = 0; i < positions.length; i += 5) {
 				positions[i] += Math.random() * distRange - (distRange / 2);
 			}
+
+			// clone geometry
+			var edgesGeo = geometry.clone();
 
 			// create barycentric data
 			let barycentricData = [];
@@ -322,24 +368,36 @@
 				indexCount++;
 			}
 
-			// add barycentric data to geometry
-			geometry.addAttribute('barycentric', new Float32BufferAttribute(barycentricData, 3));
+			// add barycentric data to edges geometry
+			edgesGeo.addAttribute('barycentric', new Float32BufferAttribute(barycentricData, 3));
 
 
 
 			geometry.computeVertexNormals();
 			geometry.computeFaceNormals();
+			edgesGeo.computeVertexNormals();
+			edgesGeo.computeFaceNormals();
 
 			geometry.verticesNeedUpdate = true;
 			geometry.normalsNeedUpdate = true;
 			geometry.uvsNeedUpdate = true;
-			material.needsUpdate = true;
+			normalsMaterial.needsUpdate = true;
+			edgesGeo.verticesNeedUpdate = true;
+			edgesGeo.normalsNeedUpdate = true;
+			edgesGeo.uvsNeedUpdate = true;
+			edgesMaterial.needsUpdate = true;
 
-			thing = new THREE.Mesh(geometry, material);
-			thing.position.set(0, 0, -30);
-			let thingClone = thing.clone();
-			scene.add(thingClone);
-			distortionScene.add(thing);
+			distPlaneNormals = new THREE.Mesh(geometry, normalsMaterial);
+			distPlaneNormals.position.set(0, 0, -30);
+			distPlaneNormalsClone = distPlaneNormals.clone();
+
+			distPlaneEdges = new THREE.Mesh(edgesGeo, edgesMaterial);
+			distPlaneEdges.position.set(0, 0, -30);
+			distPlaneEdgesClone = distPlaneEdges.clone();
+
+
+			scene.add(distPlaneEdgesClone);
+			distortionNormalsScene.add(distPlaneNormals);
 
 
 			console.log(geometry);
@@ -366,14 +424,14 @@
 
 			var delta = clock.getDelta() * 0.5;
 
-			if (thing) {
-				thing.rotation.y = 0.3 * Math.sin(time);
+			if (distPlaneNormals) {
+				distPlaneNormals.rotation.y = 0.3 * Math.sin(time);
 			}
 
 			renderer.setRenderTarget(bgRenderTarget);
 			renderer.render(bgRtScene, bgRtCamera);
-			renderer.setRenderTarget(distortionRenderTarget);
-			renderer.render(distortionScene, distortionCamera);
+			renderer.setRenderTarget(distortionNormalsRenderTarget);
+			renderer.render(distortionNormalsScene, distortionNormalsCamera);
 			renderer.setRenderTarget(null);
 
 			renderer.render(scene, camera);
