@@ -11,14 +11,12 @@
 <body>
 	<script id="distPlaneEdgesVertShader" type="x-shader/x-vertex">
 		varying vec2 vUv;
-		varying vec3 vNormal;
 		varying vec3 vBC;
 
 		attribute vec3 barycentric;
 	
 		void main() {
 			vUv = uv;
-			vNormal = normalMatrix * normalize(normal);
 			vBC = barycentric;
 	
 			gl_Position =   projectionMatrix * 
@@ -29,14 +27,11 @@
 
 	<script id="distPlaneEdgesFragShader" type="x-shader/x-fragment">
 		varying vec2 vUv;
-		varying mediump vec3 vNormal;
 		varying vec3 vBC;
 	
 		void main() {
-			vec3 view_nv = normalize(vNormal);
-			float dist = distance(vec3(0.0), vBC);
-			vec3 color = vec3(dist);
-			gl_FragColor = vec4(color, 1.0);
+			float dist = distance(vec3(0.33), vBC);
+			gl_FragColor = vec4(vec3(dist), 1.0);
 		}
 	</script>
 
@@ -45,12 +40,10 @@
 		varying vec3 vNormal;
 		varying vec3 vBC;
 
-		//attribute vec3 barycentric;
 	
 		void main() {
 			vUv = uv;
 			vNormal = normalMatrix * normalize(normal);
-			//vBC = barycentric;
 	
 			gl_Position =   projectionMatrix * 
 							modelViewMatrix * 
@@ -61,14 +54,11 @@
 	<script id="distPlaneNormalsFragShader" type="x-shader/x-fragment">
 		varying vec2 vUv;
 		varying mediump vec3 vNormal;
-		//varying vec3 vBC;
 	
 		void main() {
 			vec3 view_nv = normalize(vNormal);
-			//float dist = distance(vec3(0.0), vBC);
 			vec3 nv_color = view_nv * 0.5 + 0.5;
 			
-			//nv_color = mix(nv_color, vec3(1.0), dist);
 			gl_FragColor = vec4(nv_color, 1.0);
 		}
 	</script>
@@ -288,7 +278,7 @@
 			fsQuad = new THREE.Mesh(geo, material);
 			fsQuad.position.set(-1, 1, 0);
 
-			scene.add(fsQuad);
+			// scene.add(fsQuad);
 		}
 
 		function makeBackgroundPlane() {
@@ -327,7 +317,8 @@
 		function makeDistortionPlanes() {
 			let distRange = 2;
 
-			var geometry = new THREE.PlaneBufferGeometry(20, 20, 8, 8);
+			var geometry = new THREE.PlaneBufferGeometry(20, 20, 2, 2);
+			// var geometry = new THREE.PlaneBufferGeometry(20, 20, 1, 1);
 
 			// var material = new THREE.MeshNormalMaterial();
 			var normalsMaterial = new THREE.ShaderMaterial({
@@ -355,8 +346,6 @@
 			let barycentricData = [];
 			let indexCount = 0;
 			for (let i = 0; i < positions.length; i += 3) {
-
-
 				if (indexCount % 3 === 0) {
 					barycentricData.push(1, 0, 0);
 				} else if (indexCount % 3 === 1) {
@@ -364,7 +353,6 @@
 				} else if (indexCount % 3 === 2) {
 					barycentricData.push(0, 0, 1);
 				}
-
 				indexCount++;
 			}
 
@@ -400,7 +388,7 @@
 			distortionNormalsScene.add(distPlaneNormals);
 
 
-			console.log(geometry);
+			console.log(edgesGeo);
 		}
 
 		function onWindowResize() {
