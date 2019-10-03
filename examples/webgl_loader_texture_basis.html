@@ -30,7 +30,7 @@
 		varying vec3 vBC;
 	
 		void main() {
-			float dist = distance(vec3(0.33), vBC);
+			float dist = distance(vec3(0.33), vBC) * 1.0;
 			gl_FragColor = vec4(vec3(dist), 1.0);
 		}
 	</script>
@@ -138,22 +138,36 @@
 	</script>
 
 	<script id="quadFragShader" type="x-shader/x-fragment">
+		#define sat(x) clamp(x, 0.0, 1.0);
+		
 		uniform float iTime;
 		uniform sampler2D bgTexture;
 		uniform sampler2D distortionTexture;
+		uniform sampler2D edgesTexture;
 	
 		varying vec2 vUv;
 
+		float remap01(float a, float b, float t) {
+			return sat((t - a) / (b - a));  
+		}
 		
+		
+		float remap(float a, float b, float c, float d, float t) {
+				return remap01(a, b, t) * (d - c) + c;
+		}
 	
 		void main() {
 			vec4 bgColor = texture2D(bgTexture, vUv);
 			vec4 normalColor = texture2D(distortionTexture, vUv);
+			vec4 edgesColor = texture2D(edgesTexture, vUv);
 			vec3 normal = normalize(normalColor.rgb * 2.0 - 1.0);
+
+			// remap edges color
+			float edgeVal = remap(0.0, 1.0, 0.2, 0.7, edgesColor.r);
 			
-			vec3 refractVec1 = refract(vec3(0.0, 0.0, 1.0), normal, 0.2);
-			vec3 refractVec2 = refract(vec3(0.2, 0.0, 1.0), normal, 0.2);
-			vec3 refractVec3 = refract(vec3(0.2, 0.0, 1.0), normal, 0.2);
+			vec3 refractVec1 = refract(vec3(0.0, 0.0, 1.0), normal, edgeVal);
+			vec3 refractVec2 = refract(vec3(0.05, 0.0, 1.0), normal, edgeVal);
+			vec3 refractVec3 = refract(vec3(0.05, 0.0, 1.0), normal, edgeVal);
 			vec4 refractColor1 = texture2D(bgTexture, vUv + refractVec1.xy * 0.3);
 			vec4 refractColor2 = texture2D(bgTexture, vUv + refractVec2.xy * 0.3);
 			vec4 refractColor3 = texture2D(bgTexture, vUv + refractVec3.xy * 0.3);
@@ -162,6 +176,8 @@
 
 			// normalColor.a determines if we need to use the refracted colors or not
 			vec4 color = bgColor + refractColor * normalColor.a;
+
+			color = mix(color, edgesColor, edgesColor.r / 2.0);
 
 			// border
 			color = mix(color, vec4(1.0, 0.0, 0.0, 1.0), smoothstep(0.01, 0.0, vUv.x) + smoothstep(0.99, 1.0, vUv.x) + smoothstep(0.01, 0.0, vUv.y) + smoothstep(0.99, 1.0, vUv.y));
@@ -264,6 +280,10 @@
 				distortionTexture: {
 					type: "t",
 					value: distortionNormalsRenderTarget.texture
+				},
+				edgesTexture: {
+					type: 't',
+					value: distortionEdgesRenderTarget.texture
 				}
 			};
 
@@ -278,7 +298,7 @@
 			fsQuad = new THREE.Mesh(geo, material);
 			fsQuad.position.set(-1, 1, 0);
 
-			// scene.add(fsQuad);
+			scene.add(fsQuad);
 		}
 
 		function makeBackgroundPlane() {
@@ -315,9 +335,9 @@
 		}
 
 		function makeDistortionPlanes() {
-			let distRange = 2;
+			let distRange = 8;
 
-			var geometry = new THREE.PlaneBufferGeometry(20, 20, 2, 2);
+			var geometry = new THREE.PlaneBufferGeometry(20, 20, 4, 4);
 			// var geometry = new THREE.PlaneBufferGeometry(20, 20, 1, 1);
 
 			// var material = new THREE.MeshNormalMaterial();
@@ -386,6 +406,7 @@
 
 			scene.add(distPlaneEdgesClone);
 			distortionNormalsScene.add(distPlaneNormals);
+			distortionEdgesScene.add(distPlaneEdges);
 
 
 			console.log(edgesGeo);
@@ -414,12 +435,15 @@
 
 			if (distPlaneNormals) {
 				distPlaneNormals.rotation.y = 0.3 * Math.sin(time);
+				distPlaneEdges.rotation.y = 0.3 * Math.sin(time);
 			}
 
 			renderer.setRenderTarget(bgRenderTarget);
 			renderer.render(bgRtScene, bgRtCamera);
 			renderer.setRenderTarget(distortionNormalsRenderTarget);
 			renderer.render(distortionNormalsScene, distortionNormalsCamera);
+			renderer.setRenderTarget(distortionEdgesRenderTarget);
+			renderer.render(distortionEdgesScene, distortionEdgesCamera);
 			renderer.setRenderTarget(null);
 
 			renderer.render(scene, camera);
