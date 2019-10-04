@@ -328,17 +328,18 @@
 			bgMesh.name = 'bgMesh';
 			bgMesh.position.set(0, 0, -40);
 			bgMesh.scale.set(1, 1, 1);
-			// scene.add(bgMesh);
+			let foo = bgMesh.clone();
+			scene.add(foo);
 			bgRtScene.add(bgMesh);
 			console.log(bgRtScene);
 
 		}
 
 		function makeDistortionPlanes() {
-			let distRange = 8;
+			let distRange = 1;
 
 			var geometry = new THREE.PlaneBufferGeometry(20, 20, 4, 4);
-			// var geometry = new THREE.PlaneBufferGeometry(20, 20, 1, 1);
+			var geometry = new THREE.PlaneBufferGeometry(20, 20, 1, 1);
 
 			// var material = new THREE.MeshNormalMaterial();
 			var normalsMaterial = new THREE.ShaderMaterial({
