@@ -32,6 +32,7 @@
 		void main() {
 			float color = pow(distance(vec3(0.33), vBC), 3.0);
 			vec3 white = vec3(1.0, 1.0, 1.0);
+			// x * y * z = 0 if any of the components is 0
 			float line = 1.0 - smoothstep(0.0, 0.005, vBC.x * vBC.y * vBC.z);
 			vec3 finalColor = mix(vec3(color), white, line);
 			gl_FragColor = vec4(finalColor, 1.0);
@@ -178,10 +179,10 @@
 			//vec4 refractColor = vec4(refractColor1.r, refractColor2.g, refractColor3.b, 1.0);
 
 			vec3 refractVec = refract(vec3(0.0, 0.0, 1.0), normal, 0.0);
-			vec4 refractColor = texture2D(bgTexture, vUv + refractVec.xy * edgesColor.r);
+			vec4 refractColor = texture2D(bgTexture, vUv + (refractVec.xy * edgesColor.r));
 
 			// normalColor.a determines if we need to use the refracted colors or not
-			vec4 color = bgColor + refractColor * normalColor.a;
+			vec4 color =  refractColor * normalColor.a;
 
 			// mix in the edges color white
 			color = mix(color, edgesColor, edgesColor.r / 8.0);
@@ -343,10 +344,10 @@
 		}
 
 		function makeDistortionPlanes() {
-			let distRange = 4;
+			let distRange = 16;
 
 			var geometry = new THREE.PlaneBufferGeometry(20, 20, 4, 4);
-			var geometry = new THREE.PlaneBufferGeometry(20, 20, 1, 1);
+			// var geometry = new THREE.PlaneBufferGeometry(20, 20, 1, 1);
 
 			// var material = new THREE.MeshNormalMaterial();
 			var normalsMaterial = new THREE.ShaderMaterial({
@@ -363,7 +364,7 @@
 
 			// offset vertices
 			let positions = geometry.attributes.position.array;
-			for (let i = 0; i < positions.length; i += 5) {
+			for (let i = 0; i < positions.length; i += 2) {
 				positions[i] += Math.random() * distRange - (distRange / 2);
 			}
 
@@ -412,6 +413,7 @@
 			distPlaneEdgesClone = distPlaneEdges.clone();
 
 
+			// scene.add(distPlaneNormalsClone);
 			scene.add(distPlaneEdgesClone);
 			distortionNormalsScene.add(distPlaneNormals);
 			distortionEdgesScene.add(distPlaneEdges);
