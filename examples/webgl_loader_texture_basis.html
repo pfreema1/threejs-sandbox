@@ -222,7 +222,8 @@
 			distRange: 0,//16,
 			planeSubdiv: 4,
 			edgesRenderStrength: 8.0,
-			chromaticAberrMod: 0.5
+			chromaticAberrMod: 0.1,
+			rotateSpeed: 0.2
 		};
 		var pane;
 
@@ -258,6 +259,8 @@
 		var bgCanvas;
 		var bgCanvasCtx;
 		var bgCanvasTexture;
+		var canvasWidth, canvasHeight;
+		var textLines;
 
 		var fontLoader = new FontFaceObserver('Oswald');
 		fontLoader.load().then(() => {
@@ -362,11 +365,69 @@
 		*************************/
 
 		function makeBgCanvas() {
+			class TextLine {
+				constructor(startX, startY, snippetWidth, snippetPadding, scrollSpeed, scrollDir) {
+					this.snippets = [
+						{
+							x: startX,
+							y: startY
+						},
+						{
+							x: startX + (snippetWidth + snippetPadding) * 1,
+							y: startY,
+						},
+						{
+							x: startX + (snippetWidth + snippetPadding) * 2,
+							y: startY,
+						}
+					];
+
+					this.scrollSpeed = scrollSpeed;
+					this.scrollDir = scrollDir;
+				}
+
+				update(time) {
+					for (let i = 0; i < this.snippets.length; i++) {
+						this.snippets[i].x += (this.scrollSpeed * this.scrollDir);
+					}
+				}
+
+				draw() {
+					for (let i = 0; i < this.snippets.length; i++) {
+						bgCanvasCtx.font = fontSize + 'px Oswald';
+						bgCanvasCtx.fillStyle = 'black';
+						bgCanvasCtx.textAlign = "center";
+						bgCanvasCtx.textBaseline = "middle";
+						bgCanvasCtx.fillText('ALL YOU SEE IS', this.snippets[i].x, this.snippets[i].y);
+					}
+				}
+			}
+
 			bgCanvas = document.createElement('canvas');
 			bgCanvasCtx = bgCanvas.getContext('2d');
-			bgCanvas.width = bgCanvas.height = 1024;
+			bgCanvas.width = bgCanvas.height = canvasWidth = canvasHeight = 1024;
 			bgCanvasTexture = new THREE.CanvasTexture(bgCanvas);
 			bgCanvasTexture.needsUpdate = true;
+
+			let fontSize = 180;
+			bgCanvasCtx.font = fontSize + 'px Oswald';
+			bgCanvasCtx.fillStyle = 'black';
+			bgCanvasCtx.textAlign = "center";
+			bgCanvasCtx.textBaseline = "middle";
+			let textMetric = bgCanvasCtx.measureText('ALL YOU SEE IS');
+			let textSnippetWidth = textMetric.width;
+			let textSnippetsPerLine = 3;
+			let textLineCount = Math.ceil(canvasHeight / fontSize);
+			let textLineHeight = fontSize;
+			let snippetPadding = 45;
+			let scrollSpeed = 1;
+			textLines = [];
+
+			for (let i = 0; i < textLineCount; i++) {
+				let textLine = new TextLine(0, i * textLineHeight, textSnippetWidth, snippetPadding, scrollSpeed, i % 2 === 0 ? -1 : 1);
+				textLines.push(textLine);
+			}
+
 		}
 
 		/*************************
@@ -600,43 +661,58 @@
 				.on('change', value => {
 					fsQuadUniforms.chromaticAberrMod.value = value;
 				});
+
+			// 0.3
+			pane.addInput(PARAMS, 'rotateSpeed', {
+				min: -0.5,
+				max: 0.5,
+			})
 		}
 
 		/*************************
 		UPDATE BACKGROUND CANVAS
 		*************************/
 
-		function updateBgCanvas() {
+		function updateBgCanvas(time) {
+
+			bgCanvasCtx.clearRect(0, 0, canvasWidth, canvasHeight);
 
 			// border
 			bgCanvasCtx.fillStyle = 'red';
-			bgCanvasCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+			bgCanvasCtx.fillRect(0, 0, canvasWidth, canvasHeight);
 
 			// bg
 			bgCanvasCtx.fillStyle = 'white';
-			bgCanvasCtx.fillRect(10, 10, bgCanvas.width - 20, bgCanvas.height - 20);
+			bgCanvasCtx.fillRect(10, 10, canvasWidth - 20, canvasHeight - 20);
 
 			// text
-			let fontSize = 180;
-			bgCanvasCtx.font = fontSize + 'px Oswald';
-			bgCanvasCtx.fillStyle = 'black';
-			bgCanvasCtx.textAlign = "center";
-			bgCanvasCtx.textBaseline = "middle";
-			let textMetric = bgCanvasCtx.measureText('ALL YOU SEE IS');
-			let textSnippetWidth = textMetric.width;
-			let textSnippetsPerLine = 3;
-			let textLines = Math.ceil(bgCanvas.height / fontSize);
-			let textLineHeight = fontSize;
-			let snippetPadding = 45;
-			console.log(textLines);
+			// let fontSize = 180;
+			// bgCanvasCtx.font = fontSize + 'px Oswald';
+			// bgCanvasCtx.fillStyle = 'black';
+			// bgCanvasCtx.textAlign = "center";
+			// bgCanvasCtx.textBaseline = "middle";
+			// let textMetric = bgCanvasCtx.measureText('ALL YOU SEE IS');
+			// let textSnippetWidth = textMetric.width;
+			// let textSnippetsPerLine = 3;
+			// let textLines = Math.ceil(canvasHeight / fontSize);
+			// let textLineHeight = fontSize;
+			// let snippetPadding = 45;
+			// let scrollSpeed = 30;
 
-			for (let i = 0; i < textLines; i++) {
-				for (let j = 0; j < textSnippetsPerLine; j++) {
-					bgCanvasCtx.fillText('ALL YOU SEE IS', j * (textSnippetWidth + snippetPadding), i * textLineHeight);
+			// for (let i = 0; i < textLines; i++) {
+			// 	for (let j = 0; j < textSnippetsPerLine; j++) {
+			// 		let scrollDir = i % 2 === 0 ? -1 : 1;
+			// 		let x = j * (textSnippetWidth + snippetPadding) + scrollSpeed * time * scrollDir;
+			// 		bgCanvasCtx.fillText('ALL YOU SEE IS', x, i * textLineHeight);
+			// 	}
+			// }
+
+			if (time) {
+				for (let i = 0; i < textLines.length; i++) {
+					textLines[i].update(time);
+					textLines[i].draw();
 				}
 			}
-
-
 
 		}
 
@@ -660,14 +736,14 @@
 
 			time *= 0.001;
 
-			updateBgCanvas();
+			updateBgCanvas(time);
 			bgCanvasTexture.needsUpdate = true;
 
 			var delta = clock.getDelta() * 0.5;
 
 			if (distPlaneNormals) {
-				distPlaneNormals.rotation.y = 0.3 * Math.sin(time);
-				distPlaneEdges.rotation.y = 0.3 * Math.sin(time);
+				distPlaneNormals.rotation.y = PARAMS.rotateSpeed * Math.sin(time);
+				distPlaneEdges.rotation.y = PARAMS.rotateSpeed * Math.sin(time);
 			}
 
 			renderer.setRenderTarget(bgRenderTarget);
