@@ -1,18 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<title>three.js webgl - basis texture loader</title>
-		<meta charset="utf-8" />
-		<meta
-			name="viewport"
-			content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0"
-		/>
-		<link type="text/css" rel="stylesheet" href="main.css" />
-	</head>
 
-	<body>
-		<script src="https://cdn.jsdelivr.net/npm/tweakpane@1.0.5/dist/tweakpane.min.js"></script>
-		<script id="distPlaneEdgesVertShader" type="x-shader/x-vertex">
+<head>
+	<title>three.js webgl - basis texture loader</title>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+	<link type="text/css" rel="stylesheet" href="main.css" />
+</head>
+
+<body>
+	<script src="https://cdn.jsdelivr.net/npm/tweakpane@1.0.5/dist/tweakpane.min.js"></script>
+	<script id="distPlaneEdgesVertShader" type="x-shader/x-vertex">
 			varying vec2 vUv;
 			varying vec3 vBC;
 
@@ -28,7 +26,7 @@
 			}
 		</script>
 
-		<script id="distPlaneEdgesFragShader" type="x-shader/x-fragment">
+	<script id="distPlaneEdgesFragShader" type="x-shader/x-fragment">
 			varying vec2 vUv;
 			varying vec3 vBC;
 
@@ -44,7 +42,7 @@
 			}
 		</script>
 
-		<script id="distPlaneNormalsVertShader" type="x-shader/x-vertex">
+	<script id="distPlaneNormalsVertShader" type="x-shader/x-vertex">
 			varying vec2 vUv;
 			varying vec3 vNormal;
 			varying vec3 vBC;
@@ -60,7 +58,7 @@
 			}
 		</script>
 
-		<script id="distPlaneNormalsFragShader" type="x-shader/x-fragment">
+	<script id="distPlaneNormalsFragShader" type="x-shader/x-fragment">
 			varying vec2 vUv;
 			varying mediump vec3 vNormal;
 
@@ -72,7 +70,7 @@
 			}
 		</script>
 
-		<script id="bgVertShader" type="x-shader/x-vertex">
+	<script id="bgVertShader" type="x-shader/x-vertex">
 			uniform float iTime;
 			varying vec2 vUv;
 			varying vec3 vNormal;
@@ -87,7 +85,7 @@
 			}
 		</script>
 
-		<script id="bgFragShader" type="x-shader/x-fragment">
+	<script id="bgFragShader" type="x-shader/x-fragment">
 			uniform float iTime;
 			uniform sampler2D texture1;
 
@@ -126,7 +124,7 @@
 			}
 		</script>
 
-		<script id="quadVertShader" type="x-shader/x-vertex">
+	<script id="quadVertShader" type="x-shader/x-vertex">
 			uniform float iTime;
 			varying vec2 vUv;
 			varying vec3 vNormal;
@@ -145,7 +143,7 @@
 			}
 		</script>
 
-		<script id="quadFragShader" type="x-shader/x-fragment">
+	<script id="quadFragShader" type="x-shader/x-fragment">
 			#define sat(x) clamp(x, 0.0, 1.0);
 
 			uniform float iTime;
@@ -204,396 +202,455 @@
 			}
 		</script>
 
-		<!-- 
+	<!-- 
 			*******************************
 			******************************
 		 -->
-		<script type="module">
-			import * as THREE from '../build/three.module.js';
+	<script type="module">
+		import * as THREE from '../build/three.module.js';
 
-			import { BasisTextureLoader } from './jsm/loaders/BasisTextureLoader.js';
-			import { GLTFLoader } from './jsm/loaders/GLTFLoader.js';
-			import { OrbitControls } from './jsm/controls/OrbitControls.js';
-			import { Float32BufferAttribute } from '../src/core/BufferAttribute.js';
+		import { BasisTextureLoader } from './jsm/loaders/BasisTextureLoader.js';
+		import { GLTFLoader } from './jsm/loaders/GLTFLoader.js';
+		import { OrbitControls } from './jsm/controls/OrbitControls.js';
+		import { Float32BufferAttribute } from '../src/core/BufferAttribute.js';
 
-			var PARAMS = {
-				speed: 0.5,
-				edgesThickness: 3.0,
-				distRange: 16,
-				planeSubdiv: 4,
-				edgesRenderStrength: 8.0,
-				chromaticAberrMod: 0.5
+		var PARAMS = {
+			speed: 0.5,
+			edgesThickness: 3.0,
+			distRange: 16,
+			planeSubdiv: 4,
+			edgesRenderStrength: 8.0,
+			chromaticAberrMod: 0.5
+		};
+		var pane;
+
+		var camera, scene, renderer;
+		var mesh;
+
+		var clock = new THREE.Clock();
+		var distPlaneNormals,
+			distPlaneNormalsClone,
+			bgVertShader,
+			bgFragShader,
+			quadVertShader,
+			quadFragShader,
+			distPlaneNormalsVertShader,
+			distPlaneNormalsFragShader;
+		var uniforms, colorTexture, maskTexture;
+		var textureOffset = 0;
+		var controls;
+		var bgUniforms, bgTexture, bgMesh, bgRenderTarget, bgRtCamera, bgRtScene;
+		var distortionNormalsScene,
+			distortionNormalsCamera,
+			distortionNormalsRenderTarget;
+		var fsQuad, fsQuadUniforms;
+		var distPlaneEdges,
+			distPlaneEdgesClone,
+			distPlaneEdgesVertShader,
+			distPlaneEdgesFragShader;
+		var distortionEdgesScene,
+			distortionEdgesCamera,
+			distortionEdgesRenderTarget;
+
+		var edgesUniforms, distRange;
+		var bgCanvas;
+		var bgCanvasCtx;
+		var bgCanvasTexture;
+
+		init();
+		animate();
+		addPaneParams();
+
+		/*************************
+		INIT
+		*************************/
+
+		function init() {
+			pane = new Tweakpane();
+
+			renderer = new THREE.WebGLRenderer({ antialias: true });
+			renderer.setPixelRatio(window.devicePixelRatio);
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			renderer.gammaOutput = true;
+			renderer.gammaFactor = 2.2;
+			document.body.appendChild(renderer.domElement);
+			bgVertShader = document.getElementById('bgVertShader').innerHTML;
+			bgFragShader = document.getElementById('bgFragShader').innerHTML;
+			quadVertShader = document.getElementById('quadVertShader').innerHTML;
+			quadFragShader = document.getElementById('quadFragShader').innerHTML;
+			distPlaneNormalsFragShader = document.getElementById(
+				'distPlaneNormalsFragShader'
+			).innerHTML;
+			distPlaneNormalsVertShader = document.getElementById(
+				'distPlaneNormalsVertShader'
+			).innerHTML;
+			distPlaneEdgesFragShader = document.getElementById(
+				'distPlaneEdgesFragShader'
+			).innerHTML;
+			distPlaneEdgesVertShader = document.getElementById(
+				'distPlaneEdgesVertShader'
+			).innerHTML;
+
+			bgRenderTarget = new THREE.WebGLRenderTarget(
+				window.innerWidth,
+				window.innerHeight
+			);
+			bgRtCamera = new THREE.PerspectiveCamera(
+				50,
+				window.innerWidth / window.innerHeight,
+				1,
+				2000
+			);
+			bgRtCamera.position.set(0, 0, 5);
+
+			distortionNormalsRenderTarget = new THREE.WebGLRenderTarget(
+				window.innerWidth,
+				window.innerHeight
+			);
+			distortionNormalsCamera = new THREE.PerspectiveCamera(
+				50,
+				window.innerWidth / window.innerHeight,
+				1,
+				2000
+			);
+			distortionNormalsCamera.position.set(0, 0, 5);
+
+			distortionEdgesRenderTarget = new THREE.WebGLRenderTarget(
+				window.innerWidth,
+				window.innerHeight
+			);
+			distortionEdgesCamera = new THREE.PerspectiveCamera(
+				50,
+				window.innerWidth / window.innerHeight,
+				1,
+				2000
+			);
+			distortionEdgesCamera.position.set(0, 0, 5);
+
+			camera = new THREE.PerspectiveCamera(
+				50,
+				window.innerWidth / window.innerHeight,
+				1,
+				2000
+			);
+			camera.position.set(0, 0, 5);
+
+			scene = new THREE.Scene();
+			bgRtScene = new THREE.Scene();
+			distortionNormalsScene = new THREE.Scene();
+			distortionEdgesScene = new THREE.Scene();
+
+			makeBgCanvas();
+			makeBackgroundPlane();
+			makeDistortionPlanes();
+			makeFsQuad();
+
+			window.addEventListener('resize', onWindowResize, false);
+		}
+
+		/*************************
+		MAKE BG CANVAS
+		*************************/
+
+		function makeBgCanvas() {
+			bgCanvas = document.createElement('canvas');
+			bgCanvasCtx = bgCanvas.getContext('2d');
+			bgCanvas.width = bgCanvas.height = 1024;
+			bgCanvasTexture = new THREE.CanvasTexture(bgCanvas);
+			bgCanvasTexture.needsUpdate = true;
+		}
+
+		/*************************
+		FULL SCREEN QUAD
+		*************************/
+
+		function makeFsQuad() {
+			let geo = new THREE.PlaneGeometry(2, 2);
+
+			fsQuadUniforms = {
+				iTime: {
+					value: 0
+				},
+				bgTexture: {
+					type: 't',
+					value: bgCanvasTexture//bgRenderTarget.texture
+				},
+				distortionTexture: {
+					type: 't',
+					value: distortionNormalsRenderTarget.texture
+				},
+				edgesTexture: {
+					type: 't',
+					value: distortionEdgesRenderTarget.texture
+				},
+				edgesRenderStrength: {
+					value: PARAMS.edgesRenderStrength
+				},
+				chromaticAberrMod: {
+					value: PARAMS.chromaticAberrMod
+				}
 			};
-			var pane;
 
-			var camera, scene, renderer;
-			var mesh;
+			let material = new THREE.ShaderMaterial({
+				vertexShader: quadVertShader,
+				fragmentShader: quadFragShader,
+				uniforms: fsQuadUniforms
+				// depthWrite: false,
+				// depthTest: false
+			});
 
-			var clock = new THREE.Clock();
-			var distPlaneNormals,
-				distPlaneNormalsClone,
-				bgVertShader,
-				bgFragShader,
-				quadVertShader,
-				quadFragShader,
-				distPlaneNormalsVertShader,
-				distPlaneNormalsFragShader;
-			var uniforms, colorTexture, maskTexture;
-			var textureOffset = 0;
-			var controls;
-			var bgUniforms, bgTexture, bgMesh, bgRenderTarget, bgRtCamera, bgRtScene;
-			var distortionNormalsScene,
-				distortionNormalsCamera,
-				distortionNormalsRenderTarget;
-			var fsQuad, fsQuadUniforms;
-			var distPlaneEdges,
-				distPlaneEdgesClone,
-				distPlaneEdgesVertShader,
-				distPlaneEdgesFragShader;
-			var distortionEdgesScene,
-				distortionEdgesCamera,
-				distortionEdgesRenderTarget;
+			fsQuad = new THREE.Mesh(geo, material);
+			fsQuad.position.set(-1, 1, 0);
+			fsQuad.scale.set(2, 2, 2);
 
-			var edgesUniforms, distRange;
+			scene.add(fsQuad);
+		}
 
-			init();
-			animate();
-			addPaneParams();
+		/*************************
+		BACKGROUND PLANE
+		*************************/
 
-			function init() {
-				pane = new Tweakpane();
+		function makeBackgroundPlane() {
+			bgTexture = THREE.ImageUtils.loadTexture('textures/allyouseeis.png');
 
-				renderer = new THREE.WebGLRenderer({ antialias: true });
-				renderer.setPixelRatio(window.devicePixelRatio);
-				renderer.setSize(window.innerWidth, window.innerHeight);
-				renderer.gammaOutput = true;
-				renderer.gammaFactor = 2.2;
-				document.body.appendChild(renderer.domElement);
-				bgVertShader = document.getElementById('bgVertShader').innerHTML;
-				bgFragShader = document.getElementById('bgFragShader').innerHTML;
-				quadVertShader = document.getElementById('quadVertShader').innerHTML;
-				quadFragShader = document.getElementById('quadFragShader').innerHTML;
-				distPlaneNormalsFragShader = document.getElementById(
-					'distPlaneNormalsFragShader'
-				).innerHTML;
-				distPlaneNormalsVertShader = document.getElementById(
-					'distPlaneNormalsVertShader'
-				).innerHTML;
-				distPlaneEdgesFragShader = document.getElementById(
-					'distPlaneEdgesFragShader'
-				).innerHTML;
-				distPlaneEdgesVertShader = document.getElementById(
-					'distPlaneEdgesVertShader'
-				).innerHTML;
+			var geometry = new THREE.PlaneBufferGeometry(20, 20, 8, 8);
 
-				bgRenderTarget = new THREE.WebGLRenderTarget(
-					window.innerWidth,
-					window.innerHeight
-				);
-				bgRtCamera = new THREE.PerspectiveCamera(
-					50,
-					window.innerWidth / window.innerHeight,
-					1,
-					2000
-				);
-				bgRtCamera.position.set(0, 0, 5);
+			bgUniforms = {
+				iTime: {
+					value: 0
+				},
+				texture1: {
+					type: 't',
+					value: bgTexture
+				}
+			};
 
-				distortionNormalsRenderTarget = new THREE.WebGLRenderTarget(
-					window.innerWidth,
-					window.innerHeight
-				);
-				distortionNormalsCamera = new THREE.PerspectiveCamera(
-					50,
-					window.innerWidth / window.innerHeight,
-					1,
-					2000
-				);
-				distortionNormalsCamera.position.set(0, 0, 5);
+			var material = new THREE.ShaderMaterial({
+				uniforms: bgUniforms,
+				vertexShader: bgVertShader,
+				fragmentShader: bgFragShader,
+				side: THREE.DoubleSide,
+				transparent: true
+			});
 
-				distortionEdgesRenderTarget = new THREE.WebGLRenderTarget(
-					window.innerWidth,
-					window.innerHeight
-				);
-				distortionEdgesCamera = new THREE.PerspectiveCamera(
-					50,
-					window.innerWidth / window.innerHeight,
-					1,
-					2000
-				);
-				distortionEdgesCamera.position.set(0, 0, 5);
+			bgMesh = new THREE.Mesh(geometry, material);
+			bgMesh.name = 'bgMesh';
+			bgMesh.position.set(0, 0, -40);
+			bgMesh.scale.set(1, 1, 1);
+			let foo = bgMesh.clone();
+			scene.add(foo);
+			bgRtScene.add(bgMesh);
+			console.log(bgRtScene);
+		}
 
-				camera = new THREE.PerspectiveCamera(
-					50,
-					window.innerWidth / window.innerHeight,
-					1,
-					2000
-				);
-				camera.position.set(0, 0, 5);
-
-				scene = new THREE.Scene();
-				bgRtScene = new THREE.Scene();
-				distortionNormalsScene = new THREE.Scene();
-				distortionEdgesScene = new THREE.Scene();
-
-				makeBackgroundPlane();
-
-				makeDistortionPlanes();
-
-				makeFsQuad();
-
-				window.addEventListener('resize', onWindowResize, false);
+		/*************************
+		DISTORTION PLANES
+		*************************/
+		function makeDistortionPlanes(reset) {
+			if (reset) {
+				scene.remove(distPlaneNormalsClone);
+				scene.remove(distPlaneEdgesClone);
+				distortionNormalsScene.remove(distPlaneNormals);
+				distortionEdgesScene.remove(distPlaneEdges);
 			}
 
-			function makeFsQuad() {
-				let geo = new THREE.PlaneGeometry(2, 2);
+			distRange = PARAMS.distRange;
+			edgesUniforms = {
+				u_edgesThickness: {
+					type: 'f',
+					value: PARAMS.edgesThickness
+				}
+			};
 
-				fsQuadUniforms = {
-					iTime: {
-						value: 0
-					},
-					bgTexture: {
-						type: 't',
-						value: bgRenderTarget.texture
-					},
-					distortionTexture: {
-						type: 't',
-						value: distortionNormalsRenderTarget.texture
-					},
-					edgesTexture: {
-						type: 't',
-						value: distortionEdgesRenderTarget.texture
-					},
-					edgesRenderStrength: {
-						value: PARAMS.edgesRenderStrength
-					},
-					chromaticAberrMod: {
-						value: PARAMS.chromaticAberrMod
-					}
-				};
+			var geometry = new THREE.PlaneBufferGeometry(
+				20,
+				20,
+				PARAMS.planeSubdiv,
+				PARAMS.planeSubdiv
+			);
+			// var geometry = new THREE.PlaneBufferGeometry(20, 20, 1, 1);
 
-				let material = new THREE.ShaderMaterial({
-					vertexShader: quadVertShader,
-					fragmentShader: quadFragShader,
-					uniforms: fsQuadUniforms
-					// depthWrite: false,
-					// depthTest: false
+			// var material = new THREE.MeshNormalMaterial();
+			var normalsMaterial = new THREE.ShaderMaterial({
+				uniforms: {},
+				vertexShader: distPlaneNormalsVertShader,
+				fragmentShader: distPlaneNormalsFragShader
+			});
+
+			var edgesMaterial = new THREE.ShaderMaterial({
+				uniforms: edgesUniforms,
+				vertexShader: distPlaneEdgesVertShader,
+				fragmentShader: distPlaneEdgesFragShader
+			});
+
+			// offset vertices
+			let positions = geometry.attributes.position.array;
+			for (let i = 0; i < positions.length; i += 2) {
+				positions[i] += Math.random() * distRange - distRange / 2;
+			}
+
+			// clone geometry
+			var edgesGeo = geometry.clone();
+
+			// create barycentric data
+			let barycentricData = [];
+			let indexCount = 0;
+			for (let i = 0; i < positions.length; i += 3) {
+				if (indexCount % 3 === 0) {
+					barycentricData.push(1, 0, 0);
+				} else if (indexCount % 3 === 1) {
+					barycentricData.push(0, 1, 0);
+				} else if (indexCount % 3 === 2) {
+					barycentricData.push(0, 0, 1);
+				}
+				indexCount++;
+			}
+
+			// add barycentric data to edges geometry
+			edgesGeo.addAttribute(
+				'barycentric',
+				new Float32BufferAttribute(barycentricData, 3)
+			);
+
+			geometry.computeVertexNormals();
+			geometry.computeFaceNormals();
+			edgesGeo.computeVertexNormals();
+			edgesGeo.computeFaceNormals();
+
+			geometry.verticesNeedUpdate = true;
+			geometry.normalsNeedUpdate = true;
+			geometry.uvsNeedUpdate = true;
+			normalsMaterial.needsUpdate = true;
+			edgesGeo.verticesNeedUpdate = true;
+			edgesGeo.normalsNeedUpdate = true;
+			edgesGeo.uvsNeedUpdate = true;
+			edgesMaterial.needsUpdate = true;
+
+			distPlaneNormals = new THREE.Mesh(geometry, normalsMaterial);
+			distPlaneNormals.position.set(0, 0, -30);
+			distPlaneNormalsClone = distPlaneNormals.clone();
+
+			distPlaneEdges = new THREE.Mesh(edgesGeo, edgesMaterial);
+			distPlaneEdges.position.set(0, 0, -30);
+			distPlaneEdgesClone = distPlaneEdges.clone();
+
+			// scene.add(distPlaneNormalsClone);
+			scene.add(distPlaneEdgesClone);
+			distortionNormalsScene.add(distPlaneNormals);
+			distortionEdgesScene.add(distPlaneEdges);
+
+			console.log(edgesGeo);
+		}
+
+		/*************************
+		ADD PANE PARAMS
+		*************************/
+
+		function addPaneParams() {
+			pane
+				.addInput(PARAMS, 'edgesThickness', {
+					min: 0.0,
+					max: 10.0
+				})
+				.on('change', value => {
+					edgesUniforms.u_edgesThickness.value = value;
 				});
 
-				fsQuad = new THREE.Mesh(geo, material);
-				fsQuad.position.set(-1, 1, 0);
-				fsQuad.scale.set(2, 2, 2);
-
-				scene.add(fsQuad);
-			}
-
-			function makeBackgroundPlane() {
-				bgTexture = THREE.ImageUtils.loadTexture('textures/allyouseeis.png');
-
-				var geometry = new THREE.PlaneBufferGeometry(20, 20, 8, 8);
-
-				bgUniforms = {
-					iTime: {
-						value: 0
-					},
-					texture1: {
-						type: 't',
-						value: bgTexture
-					}
-				};
-
-				var material = new THREE.ShaderMaterial({
-					uniforms: bgUniforms,
-					vertexShader: bgVertShader,
-					fragmentShader: bgFragShader,
-					side: THREE.DoubleSide,
-					transparent: true
+			pane
+				.addInput(PARAMS, 'distRange', {
+					min: 1,
+					max: 32
+				})
+				.on('change', value => {
+					makeDistortionPlanes(true);
 				});
 
-				bgMesh = new THREE.Mesh(geometry, material);
-				bgMesh.name = 'bgMesh';
-				bgMesh.position.set(0, 0, -40);
-				bgMesh.scale.set(1, 1, 1);
-				let foo = bgMesh.clone();
-				scene.add(foo);
-				bgRtScene.add(bgMesh);
-				console.log(bgRtScene);
-			}
-
-			/*************************
-			DISTORTION PLANES
-			*************************/
-			function makeDistortionPlanes(reset) {
-				if (reset) {
-					scene.remove(distPlaneNormalsClone);
-					scene.remove(distPlaneEdgesClone);
-					distortionNormalsScene.remove(distPlaneNormals);
-					distortionEdgesScene.remove(distPlaneEdges);
-				}
-
-				distRange = PARAMS.distRange;
-				edgesUniforms = {
-					u_edgesThickness: {
-						type: 'f',
-						value: PARAMS.edgesThickness
-					}
-				};
-
-				var geometry = new THREE.PlaneBufferGeometry(
-					20,
-					20,
-					PARAMS.planeSubdiv,
-					PARAMS.planeSubdiv
-				);
-				// var geometry = new THREE.PlaneBufferGeometry(20, 20, 1, 1);
-
-				// var material = new THREE.MeshNormalMaterial();
-				var normalsMaterial = new THREE.ShaderMaterial({
-					uniforms: {},
-					vertexShader: distPlaneNormalsVertShader,
-					fragmentShader: distPlaneNormalsFragShader
+			pane
+				.addInput(PARAMS, 'planeSubdiv', {
+					min: 2,
+					max: 32
+				})
+				.on('change', value => {
+					makeDistortionPlanes(true);
 				});
 
-				var edgesMaterial = new THREE.ShaderMaterial({
-					uniforms: edgesUniforms,
-					vertexShader: distPlaneEdgesVertShader,
-					fragmentShader: distPlaneEdgesFragShader
+			pane
+				.addInput(PARAMS, 'edgesRenderStrength', {
+					min: 0.1,
+					max: 24.0
+				})
+				.on('change', value => {
+					fsQuadUniforms.edgesRenderStrength.value = value;
 				});
 
-				// offset vertices
-				let positions = geometry.attributes.position.array;
-				for (let i = 0; i < positions.length; i += 2) {
-					positions[i] += Math.random() * distRange - distRange / 2;
-				}
+			pane
+				.addInput(PARAMS, 'chromaticAberrMod', {
+					min: 0.0,
+					max: 10.0
+				})
+				.on('change', value => {
+					fsQuadUniforms.chromaticAberrMod.value = value;
+				});
+		}
 
-				// clone geometry
-				var edgesGeo = geometry.clone();
+		/*************************
+		UPDATE BACKGROUND CANVAS
+		*************************/
 
-				// create barycentric data
-				let barycentricData = [];
-				let indexCount = 0;
-				for (let i = 0; i < positions.length; i += 3) {
-					if (indexCount % 3 === 0) {
-						barycentricData.push(1, 0, 0);
-					} else if (indexCount % 3 === 1) {
-						barycentricData.push(0, 1, 0);
-					} else if (indexCount % 3 === 2) {
-						barycentricData.push(0, 0, 1);
-					}
-					indexCount++;
-				}
+		function updateBgCanvas() {
+			bgCanvasCtx.font = '20pt Arial';
+			bgCanvasCtx.fillStyle = 'red';
+			bgCanvasCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+			bgCanvasCtx.fillStyle = 'white';
+			bgCanvasCtx.fillRect(10, 10, bgCanvas.width - 20, bgCanvas.height - 20);
+			bgCanvasCtx.fillStyle = 'black';
+			bgCanvasCtx.textAlign = "center";
+			bgCanvasCtx.textBaseline = "middle";
+			bgCanvasCtx.fillText(new Date().getTime(), bgCanvas.width / 2, bgCanvas.height / 2);
 
-				// add barycentric data to edges geometry
-				edgesGeo.addAttribute(
-					'barycentric',
-					new Float32BufferAttribute(barycentricData, 3)
-				);
+		}
 
-				geometry.computeVertexNormals();
-				geometry.computeFaceNormals();
-				edgesGeo.computeVertexNormals();
-				edgesGeo.computeFaceNormals();
+		/*************************
+		ON WINDOW RESIZE
+		*************************/
 
-				geometry.verticesNeedUpdate = true;
-				geometry.normalsNeedUpdate = true;
-				geometry.uvsNeedUpdate = true;
-				normalsMaterial.needsUpdate = true;
-				edgesGeo.verticesNeedUpdate = true;
-				edgesGeo.normalsNeedUpdate = true;
-				edgesGeo.uvsNeedUpdate = true;
-				edgesMaterial.needsUpdate = true;
+		function onWindowResize() {
+			camera.aspect = window.innerWidth / window.innerHeight;
+			camera.updateProjectionMatrix();
 
-				distPlaneNormals = new THREE.Mesh(geometry, normalsMaterial);
-				distPlaneNormals.position.set(0, 0, -30);
-				distPlaneNormalsClone = distPlaneNormals.clone();
+			renderer.setSize(window.innerWidth, window.innerHeight);
+		}
 
-				distPlaneEdges = new THREE.Mesh(edgesGeo, edgesMaterial);
-				distPlaneEdges.position.set(0, 0, -30);
-				distPlaneEdgesClone = distPlaneEdges.clone();
+		/*************************
+		ANIMATE
+		*************************/
 
-				// scene.add(distPlaneNormalsClone);
-				scene.add(distPlaneEdgesClone);
-				distortionNormalsScene.add(distPlaneNormals);
-				distortionEdgesScene.add(distPlaneEdges);
+		function animate(time) {
+			requestAnimationFrame(animate);
 
-				console.log(edgesGeo);
+			time *= 0.001;
+
+			updateBgCanvas();
+			bgCanvasTexture.needsUpdate = true;
+
+			var delta = clock.getDelta() * 0.5;
+
+			if (distPlaneNormals) {
+				distPlaneNormals.rotation.y = 0.3 * Math.sin(time);
+				distPlaneEdges.rotation.y = 0.3 * Math.sin(time);
 			}
 
-			function onWindowResize() {
-				camera.aspect = window.innerWidth / window.innerHeight;
-				camera.updateProjectionMatrix();
+			renderer.setRenderTarget(bgRenderTarget);
+			renderer.render(bgRtScene, bgRtCamera);
+			renderer.setRenderTarget(distortionNormalsRenderTarget);
+			renderer.render(distortionNormalsScene, distortionNormalsCamera);
+			renderer.setRenderTarget(distortionEdgesRenderTarget);
+			renderer.render(distortionEdgesScene, distortionEdgesCamera);
+			renderer.setRenderTarget(null);
 
-				renderer.setSize(window.innerWidth, window.innerHeight);
-			}
+			renderer.render(scene, camera);
+		}
+	</script>
+</body>
 
-			function addPaneParams() {
-				pane
-					.addInput(PARAMS, 'edgesThickness', {
-						min: 0.0,
-						max: 10.0
-					})
-					.on('change', value => {
-						edgesUniforms.u_edgesThickness.value = value;
-					});
-
-				pane
-					.addInput(PARAMS, 'distRange', {
-						min: 1,
-						max: 32
-					})
-					.on('change', value => {
-						makeDistortionPlanes(true);
-					});
-
-				pane
-					.addInput(PARAMS, 'planeSubdiv', {
-						min: 2,
-						max: 32
-					})
-					.on('change', value => {
-						makeDistortionPlanes(true);
-					});
-
-				pane
-					.addInput(PARAMS, 'edgesRenderStrength', {
-						min: 0.1,
-						max: 24.0
-					})
-					.on('change', value => {
-						fsQuadUniforms.edgesRenderStrength.value = value;
-					});
-
-				pane
-					.addInput(PARAMS, 'chromaticAberrMod', {
-						min: 0.0,
-						max: 10.0
-					})
-					.on('change', value => {
-						fsQuadUniforms.chromaticAberrMod.value = value;
-					});
-			}
-
-			function animate(time) {
-				time *= 0.001;
-
-				requestAnimationFrame(animate);
-
-				var delta = clock.getDelta() * 0.5;
-
-				if (distPlaneNormals) {
-					distPlaneNormals.rotation.y = 0.3 * Math.sin(time);
-					distPlaneEdges.rotation.y = 0.3 * Math.sin(time);
-				}
-
-				renderer.setRenderTarget(bgRenderTarget);
-				renderer.render(bgRtScene, bgRtCamera);
-				renderer.setRenderTarget(distortionNormalsRenderTarget);
-				renderer.render(distortionNormalsScene, distortionNormalsCamera);
-				renderer.setRenderTarget(distortionEdgesRenderTarget);
-				renderer.render(distortionEdgesScene, distortionEdgesCamera);
-				renderer.setRenderTarget(null);
-
-				renderer.render(scene, camera);
-			}
-		</script>
-	</body>
 </html>
