@@ -95,5 +95,8 @@
       "build/three.module.js"
     ],
     "directories": {}
+  },
+  "dependencies": {
+    "tweakpane": "^1.0.5"
   }
 }
