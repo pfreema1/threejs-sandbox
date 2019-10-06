@@ -384,12 +384,62 @@
 
 					this.scrollSpeed = scrollSpeed;
 					this.scrollDir = scrollDir;
+					this.snippetWidth = snippetWidth;
+					this.snippetPadding = snippetPadding;
+				}
+
+				returnFirstSnippet() {
+					let firstSnippet = null;
+
+					firstSnippet = this.snippets.reduce((accum, currVal) => {
+						return accum.x < currVal.x ? accum : currVal;
+					});
+
+					return firstSnippet;
+				}
+
+				returnLastSnippet() {
+					let lastSnippet = null;
+
+					// case: we going left
+					lastSnippet = this.snippets.reduce((accum, currVal) => {
+						return accum.x > currVal.x ? accum : currVal;
+					});
+
+					return lastSnippet;
+				}
+
+				checkLastSnippet() {
+					const firstSnippet = this.returnFirstSnippet();
+					const lastSnippet = this.returnLastSnippet();
+					const totalSnippetWidth = this.snippetWidth + this.snippetPadding;
+
+					console.log('first:  ', firstSnippet);
+					console.log(lastSnippet);
+
+					// if lastSnippet is offscreen
+					if (this.scrollDir < 0) {
+						// case: going left
+						if (firstSnippet.x + totalSnippetWidth < 0) {
+							//case:  the farthest left snippet is off screen, move it to the end
+							firstSnippet.x = lastSnippet.x + totalSnippetWidth;
+						}
+					} else {
+						// case: going right
+						if (lastSnippet.x - totalSnippetWidth > canvasWidth) {
+							// case:  the farthest right snippet is off screen, move it to the beginning
+							lastSnippet.x = firstSnippet.x - totalSnippetWidth;
+						}
+					}
+
 				}
 
 				update(time) {
 					for (let i = 0; i < this.snippets.length; i++) {
 						this.snippets[i].x += (this.scrollSpeed * this.scrollDir);
 					}
+
+					this.checkLastSnippet();
 				}
 
 				draw() {
@@ -416,15 +466,17 @@
 			bgCanvasCtx.textBaseline = "middle";
 			let textMetric = bgCanvasCtx.measureText('ALL YOU SEE IS');
 			let textSnippetWidth = textMetric.width;
-			let textSnippetsPerLine = 3;
-			let textLineCount = Math.ceil(canvasHeight / fontSize);
+			let textSnippetsPerLine = Math.ceil((canvasWidth / textSnippetWidth) + 2);
+			let textLineCount = Math.ceil(canvasHeight / fontSize) + 1;
 			let textLineHeight = fontSize;
 			let snippetPadding = 45;
 			let scrollSpeed = 1;
 			textLines = [];
 
+			// instantiate text lines
 			for (let i = 0; i < textLineCount; i++) {
-				let textLine = new TextLine(0, i * textLineHeight, textSnippetWidth, snippetPadding, scrollSpeed, i % 2 === 0 ? -1 : 1);
+				let offset = Math.random() * (textSnippetWidth / 2);
+				let textLine = new TextLine(0 + offset, i * textLineHeight, textSnippetWidth, snippetPadding, scrollSpeed, i % 2 === 0 ? -1 : 1);
 				textLines.push(textLine);
 			}
 
