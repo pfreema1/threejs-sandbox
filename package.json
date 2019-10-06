@@ -97,6 +97,7 @@
     "directories": {}
   },
   "dependencies": {
+    "fontfaceobserver": "^2.1.0",
     "tweakpane": "^1.0.5"
   }
 }

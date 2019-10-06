@@ -6,6 +6,7 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
 	<link type="text/css" rel="stylesheet" href="main.css" />
+	<link href="https://fonts.googleapis.com/css?family=Oswald&display=swap" rel="stylesheet">
 </head>
 
 <body>
@@ -213,11 +214,12 @@
 		import { GLTFLoader } from './jsm/loaders/GLTFLoader.js';
 		import { OrbitControls } from './jsm/controls/OrbitControls.js';
 		import { Float32BufferAttribute } from '../src/core/BufferAttribute.js';
+		import '../node_modules/fontfaceobserver/fontfaceobserver.js';
 
 		var PARAMS = {
 			speed: 0.5,
 			edgesThickness: 3.0,
-			distRange: 16,
+			distRange: 0,//16,
 			planeSubdiv: 4,
 			edgesRenderStrength: 8.0,
 			chromaticAberrMod: 0.5
@@ -257,9 +259,16 @@
 		var bgCanvasCtx;
 		var bgCanvasTexture;
 
-		init();
-		animate();
-		addPaneParams();
+		var fontLoader = new FontFaceObserver('Oswald');
+		fontLoader.load().then(() => {
+			console.log('font is LOADED');
+			init();
+			animate();
+			addPaneParams();
+		}, () => {
+			console.log('font is NOT AVAILABLE');
+		})
+
 
 		/*************************
 		INIT
@@ -400,7 +409,7 @@
 			});
 
 			fsQuad = new THREE.Mesh(geo, material);
-			fsQuad.position.set(-1, 1, 0);
+			fsQuad.position.set(0, 0, 0);
 			fsQuad.scale.set(2, 2, 2);
 
 			scene.add(fsQuad);
@@ -598,15 +607,36 @@
 		*************************/
 
 		function updateBgCanvas() {
-			bgCanvasCtx.font = '20pt Arial';
+
+			// border
 			bgCanvasCtx.fillStyle = 'red';
 			bgCanvasCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+
+			// bg
 			bgCanvasCtx.fillStyle = 'white';
 			bgCanvasCtx.fillRect(10, 10, bgCanvas.width - 20, bgCanvas.height - 20);
+
+			// text
+			let fontSize = 180;
+			bgCanvasCtx.font = fontSize + 'px Oswald';
 			bgCanvasCtx.fillStyle = 'black';
 			bgCanvasCtx.textAlign = "center";
 			bgCanvasCtx.textBaseline = "middle";
-			bgCanvasCtx.fillText(new Date().getTime(), bgCanvas.width / 2, bgCanvas.height / 2);
+			let textMetric = bgCanvasCtx.measureText('ALL YOU SEE IS');
+			let textSnippetWidth = textMetric.width;
+			let textSnippetsPerLine = 3;
+			let textLines = Math.ceil(bgCanvas.height / fontSize);
+			let textLineHeight = fontSize;
+			let snippetPadding = 45;
+			console.log(textLines);
+
+			for (let i = 0; i < textLines; i++) {
+				for (let j = 0; j < textSnippetsPerLine; j++) {
+					bgCanvasCtx.fillText('ALL YOU SEE IS', j * (textSnippetWidth + snippetPadding), i * textLineHeight);
+				}
+			}
+
+
 
 		}
 
