@@ -456,6 +456,7 @@
 			bgCanvas = document.createElement('canvas');
 			bgCanvasCtx = bgCanvas.getContext('2d');
 			bgCanvas.width = bgCanvas.height = canvasWidth = canvasHeight = 1024;
+			// bgCanvasCtx.filter = 'blur(4px)'
 			bgCanvasTexture = new THREE.CanvasTexture(bgCanvas);
 			bgCanvasTexture.needsUpdate = true;
 
