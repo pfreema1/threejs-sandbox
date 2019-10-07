@@ -215,6 +215,11 @@
 		import { OrbitControls } from './jsm/controls/OrbitControls.js';
 		import { Float32BufferAttribute } from '../src/core/BufferAttribute.js';
 		import '../node_modules/fontfaceobserver/fontfaceobserver.js';
+		import { EffectComposer } from './jsm/postprocessing/EffectComposer.js';
+		import { RenderPass } from './jsm/postprocessing/RenderPass.js';
+		import { FilmPass } from './jsm/postprocessing/FilmPass.js';
+		import { FXAAShader } from './jsm/shaders/FXAAShader.js';
+		import { ShaderPass } from './jsm/postprocessing/ShaderPass.js';
 
 		var PARAMS = {
 			speed: 0.5,
@@ -223,7 +228,10 @@
 			planeSubdiv: 4,
 			edgesRenderStrength: 8.0,
 			chromaticAberrMod: 0.1,
-			rotateSpeed: 0.2
+			rotateSpeed: 0.2,
+			fpNoiseIntensity: 0.35,
+			fpScanlineCount: 648,
+			fpScanlineIntensity: 0.025
 		};
 		var pane;
 
@@ -262,6 +270,8 @@
 		var canvasWidth, canvasHeight;
 		var textLines;
 
+		var composer, filmPass, fxaaPass;
+
 		var fontLoader = new FontFaceObserver('Oswald');
 		fontLoader.load().then(() => {
 			console.log('font is LOADED');
@@ -286,6 +296,7 @@
 			renderer.gammaOutput = true;
 			renderer.gammaFactor = 2.2;
 			document.body.appendChild(renderer.domElement);
+
 			bgVertShader = document.getElementById('bgVertShader').innerHTML;
 			bgFragShader = document.getElementById('bgFragShader').innerHTML;
 			quadVertShader = document.getElementById('quadVertShader').innerHTML;
@@ -352,12 +363,37 @@
 			distortionNormalsScene = new THREE.Scene();
 			distortionEdgesScene = new THREE.Scene();
 
+
+			setupPostProcessing();
 			makeBgCanvas();
 			makeBackgroundPlane();
 			makeDistortionPlanes();
 			makeFsQuad();
 
 			window.addEventListener('resize', onWindowResize, false);
+		}
+
+		/*************************
+		SETUP POST PROCESSING
+		*************************/
+
+		function setupPostProcessing() {
+			composer = new EffectComposer(renderer);
+			composer.addPass(new RenderPass(scene, camera));
+			filmPass = new FilmPass(
+				PARAMS.fpNoiseIntensity,   // noise intensity
+				0.025,  // scanline intensity
+				648,    // scanline count
+				false,  // grayscale
+			);
+			filmPass.renderToScreen = true;
+
+			fxaaPass = new ShaderPass(FXAAShader);
+			fxaaPass.uniforms.resolution.value.set(1 / window.innerWidth, 1 / window.innerHeight);
+
+			composer.addPass(fxaaPass);
+			composer.addPass(filmPass);
+
 		}
 
 		/*************************
@@ -414,8 +450,6 @@
 					const lastSnippet = this.returnLastSnippet();
 					const totalSnippetWidth = this.snippetWidth + this.snippetPadding;
 
-					console.log('first:  ', firstSnippet);
-					console.log(lastSnippet);
 
 					// if lastSnippet is offscreen
 					if (this.scrollDir < 0) {
@@ -681,7 +715,7 @@
 
 			pane
 				.addInput(PARAMS, 'distRange', {
-					min: 1,
+					min: 0,
 					max: 32
 				})
 				.on('change', value => {
@@ -715,11 +749,35 @@
 					fsQuadUniforms.chromaticAberrMod.value = value;
 				});
 
-			// 0.3
 			pane.addInput(PARAMS, 'rotateSpeed', {
 				min: -0.5,
 				max: 0.5,
 			})
+
+			// add post processing section
+			const pp = pane.addFolder({ title: 'Post Processing - film pass' });
+
+			pp.addInput(PARAMS, 'fpNoiseIntensity', {
+				min: 0.0,
+				max: 1.0
+			}).on('change', value => {
+				console.log(filmPass);
+				filmPass.uniforms.nIntensity.value = value;
+			});
+
+			pp.addInput(PARAMS, 'fpScanlineCount', {
+				min: 0,
+				max: 1000
+			}).on('change', value => {
+				filmPass.uniforms.sCount.value = value;
+			});
+
+			pp.addInput(PARAMS, 'fpScanlineIntensity', {
+				min: 0,
+				max: 1
+			}).on('change', value => {
+				filmPass.uniforms.sIntensity.value = value;
+			});
 		}
 
 		/*************************
@@ -737,28 +795,6 @@
 			// bg
 			bgCanvasCtx.fillStyle = 'white';
 			bgCanvasCtx.fillRect(10, 10, canvasWidth - 20, canvasHeight - 20);
-
-			// text
-			// let fontSize = 180;
-			// bgCanvasCtx.font = fontSize + 'px Oswald';
-			// bgCanvasCtx.fillStyle = 'black';
-			// bgCanvasCtx.textAlign = "center";
-			// bgCanvasCtx.textBaseline = "middle";
-			// let textMetric = bgCanvasCtx.measureText('ALL YOU SEE IS');
-			// let textSnippetWidth = textMetric.width;
-			// let textSnippetsPerLine = 3;
-			// let textLines = Math.ceil(canvasHeight / fontSize);
-			// let textLineHeight = fontSize;
-			// let snippetPadding = 45;
-			// let scrollSpeed = 30;
-
-			// for (let i = 0; i < textLines; i++) {
-			// 	for (let j = 0; j < textSnippetsPerLine; j++) {
-			// 		let scrollDir = i % 2 === 0 ? -1 : 1;
-			// 		let x = j * (textSnippetWidth + snippetPadding) + scrollSpeed * time * scrollDir;
-			// 		bgCanvasCtx.fillText('ALL YOU SEE IS', x, i * textLineHeight);
-			// 	}
-			// }
 
 			if (time) {
 				for (let i = 0; i < textLines.length; i++) {
@@ -783,11 +819,13 @@
 		/*************************
 		ANIMATE
 		*************************/
-
+		let then = 0;
 		function animate(time) {
 			requestAnimationFrame(animate);
 
 			time *= 0.001;
+			const deltaTime = time - then;
+			then = time;
 
 			updateBgCanvas(time);
 			bgCanvasTexture.needsUpdate = true;
@@ -807,7 +845,8 @@
 			renderer.render(distortionEdgesScene, distortionEdgesCamera);
 			renderer.setRenderTarget(null);
 
-			renderer.render(scene, camera);
+			composer.render(deltaTime);
+			// renderer.render(scene, camera);
 		}
 	</script>
 </body>
