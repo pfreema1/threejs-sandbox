@@ -224,14 +224,15 @@
 		var PARAMS = {
 			speed: 0.5,
 			edgesThickness: 3.0,
-			distRange: 0,//16,
+			distRange: 4,//16,
 			planeSubdiv: 4,
 			edgesRenderStrength: 8.0,
 			chromaticAberrMod: 0.1,
 			rotateSpeed: 0.2,
 			fpNoiseIntensity: 0.35,
 			fpScanlineCount: 648,
-			fpScanlineIntensity: 0.025
+			fpScanlineIntensity: 0.025,
+			morphVal: 0.0,
 		};
 		var pane;
 
@@ -259,6 +260,7 @@
 			distPlaneEdgesClone,
 			distPlaneEdgesVertShader,
 			distPlaneEdgesFragShader;
+		var distortionPlaneGeo, distortionPlaneVerts;
 		var distortionEdgesScene,
 			distortionEdgesCamera,
 			distortionEdgesRenderTarget;
@@ -269,8 +271,11 @@
 		var bgCanvasTexture;
 		var canvasWidth, canvasHeight;
 		var textLines;
+		var edgesGeo;
 
 		var composer, filmPass, fxaaPass;
+
+		var positionLimits = [];
 
 		var fontLoader = new FontFaceObserver('Oswald');
 		fontLoader.load().then(() => {
@@ -619,7 +624,7 @@
 				}
 			};
 
-			var geometry = new THREE.PlaneBufferGeometry(
+			distortionPlaneGeo = new THREE.PlaneBufferGeometry(
 				20,
 				20,
 				PARAMS.planeSubdiv,
@@ -641,18 +646,22 @@
 			});
 
 			// offset vertices
-			let positions = geometry.attributes.position.array;
-			for (let i = 0; i < positions.length; i += 2) {
-				positions[i] += Math.random() * distRange - distRange / 2;
+			distortionPlaneVerts = distortionPlaneGeo.attributes.position.array;
+			for (let i = 0; i < distortionPlaneVerts.length; i += 2) {
+				let randVal = Math.random() * distRange - distRange / 2
+				// distortionPlaneVerts[i] += randVal;
+				positionLimits.push(randVal);
 			}
 
+			console.log(positionLimits);
+
 			// clone geometry
-			var edgesGeo = geometry.clone();
+			edgesGeo = distortionPlaneGeo.clone();
 
 			// create barycentric data
 			let barycentricData = [];
 			let indexCount = 0;
-			for (let i = 0; i < positions.length; i += 3) {
+			for (let i = 0; i < distortionPlaneVerts.length; i += 3) {
 				if (indexCount % 3 === 0) {
 					barycentricData.push(1, 0, 0);
 				} else if (indexCount % 3 === 1) {
@@ -669,21 +678,21 @@
 				new Float32BufferAttribute(barycentricData, 3)
 			);
 
-			geometry.computeVertexNormals();
-			geometry.computeFaceNormals();
+			distortionPlaneGeo.computeVertexNormals();
+			distortionPlaneGeo.computeFaceNormals();
 			edgesGeo.computeVertexNormals();
 			edgesGeo.computeFaceNormals();
 
-			geometry.verticesNeedUpdate = true;
-			geometry.normalsNeedUpdate = true;
-			geometry.uvsNeedUpdate = true;
+			distortionPlaneGeo.verticesNeedUpdate = true;
+			distortionPlaneGeo.normalsNeedUpdate = true;
+			distortionPlaneGeo.uvsNeedUpdate = true;
 			normalsMaterial.needsUpdate = true;
 			edgesGeo.verticesNeedUpdate = true;
 			edgesGeo.normalsNeedUpdate = true;
 			edgesGeo.uvsNeedUpdate = true;
 			edgesMaterial.needsUpdate = true;
 
-			distPlaneNormals = new THREE.Mesh(geometry, normalsMaterial);
+			distPlaneNormals = new THREE.Mesh(distortionPlaneGeo, normalsMaterial);
 			distPlaneNormals.position.set(0, 0, -30);
 			distPlaneNormalsClone = distPlaneNormals.clone();
 
@@ -753,6 +762,31 @@
 				min: -0.5,
 				max: 0.5,
 			})
+
+			pane.addInput(PARAMS, 'morphVal', {
+				min: 0.0,
+				max: 1.0
+			}).on('change', value => {
+				let index = 0;
+				for (let i = 0; i < distortionPlaneVerts.length; i += 2) {
+					let newPos = positionLimits[index] * value;
+					distortionPlaneVerts[i] += newPos;
+					edgesGeo.attributes.position.array[i] += newPos;
+					index++;
+				}
+				// debugger;
+				distortionPlaneGeo.computeVertexNormals();
+				// distortionPlaneGeo.computeFaceNormals();
+				distortionPlaneGeo.attributes.position.dynamic = true;
+				distortionPlaneGeo.attributes.position.needsUpdate = true;
+				distortionPlaneGeo.verticesNeedUpdate = true;
+				edgesGeo.verticesNeedUpdate = true;
+				edgesGeo.attributes.position.dynamic = true;
+				edgesGeo.attributes.position.needsUpdate = true;
+				// distortionPlaneGeo.computeBoundingSphere();
+				// distortionPlaneGeo.elementsNeedUpdate = true;
+				// distortionPlaneGeo.groupsNeedUpdate = true;
+			});
 
 			// add post processing section
 			const pp = pane.addFolder({ title: 'Post Processing - film pass' });
